@@ -3,7 +3,7 @@
 import tkinter as tk
 from tkinter import ttk
 import add_visitor as visitor_form
-import common_api # Required for potential future use or context, though not directly called here
+import common_api 
 
 
 # Colors
@@ -21,8 +21,6 @@ content_frame = None # Dynamic area
 def clear_content():
     """
     Clears all widgets from the central content frame.
-    FIX: Removed grid_rowconfigure/grid_columnconfigure calls to prevent 
-    the 'NoneType' error when content_frame is cleared.
     """
     if content_frame:
         for widget in content_frame.winfo_children():
@@ -37,69 +35,72 @@ def close_application():
 def show_home():
     """
     Displays the default home welcome screen.
-    FIXED: Explicitly configures content_frame's grid weights here.
+    FIXED: Uses if content_frame: to prevent 'NoneType' error on startup/callback.
     """
     clear_content()
     
-    # Configure content_frame's grid weights to allow centering
-    content_frame.grid_rowconfigure(0, weight=1)
-    content_frame.grid_columnconfigure(0, weight=1)
+    # CRITICAL FIX: Ensure content_frame is initialized
+    if content_frame:
+        # Configure content_frame's grid weights to allow centering
+        content_frame.grid_rowconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(0, weight=1)
     
-    # Center the home content within the content_frame
-    home_center = tk.Frame(content_frame, bg=BG_COLOR)
-    
-    # Use grid() to place home_center inside content_frame
-    home_center.grid(row=0, column=0, sticky="nsew")
-    
-    # Configure grid inside home_center for centered content
-    home_center.grid_rowconfigure(0, weight=1)
-    home_center.grid_rowconfigure(2, weight=1)
-    home_center.grid_columnconfigure(0, weight=1)
-    
-    text_frame = tk.Frame(home_center, bg=BG_COLOR)
-    text_frame.grid(row=1, column=0, padx=20, pady=20)
-    
-    tk.Label(text_frame, text="Welcome to Visitor Management System",
-             font=("Segoe UI", 22, "bold"), bg=BG_COLOR, fg=PRIMARY_COLOR).pack(pady=(20, 10))
-    tk.Label(text_frame,
-             text="Use the navigation bar above to manage visitor appointments and access control.",
-             font=("Segoe UI", 12), bg=BG_COLOR, fg=TEXT_COLOR).pack(pady=(0, 20))
+        # Center the home content within the content_frame
+        home_center = tk.Frame(content_frame, bg=BG_COLOR)
+        
+        # Use grid() instead of pack() to place home_center inside content_frame
+        home_center.grid(row=0, column=0, sticky="nsew")
+        
+        # Configure grid inside home_center for centered content
+        home_center.grid_rowconfigure(0, weight=1)
+        home_center.grid_rowconfigure(2, weight=1)
+        home_center.grid_columnconfigure(0, weight=1)
+        
+        text_frame = tk.Frame(home_center, bg=BG_COLOR)
+        text_frame.grid(row=1, column=0, padx=20, pady=20)
+        
+        tk.Label(text_frame, text="Welcome to Visitor Management System",
+                 font=("Segoe UI", 22, "bold"), bg=BG_COLOR, fg=PRIMARY_COLOR).pack(pady=(20, 10))
+        tk.Label(text_frame,
+                 text="Use the navigation bar above to manage visitor appointments and access control.",
+                 font=("Segoe UI", 12), bg=BG_COLOR, fg=TEXT_COLOR).pack(pady=(0, 20))
 
 
 def show_add_visitor():
     """Clears the screen and loads the responsive visitor registration form."""
     clear_content()
+    # Note: close_application is passed to allow closing the app from the form, if needed later
     visitor_form.show_create_form(content_frame, show_home, close_application)
 
 def show_visitor_list():
     clear_content()
-    # Configure content_frame's grid weights for centering this content
-    content_frame.grid_rowconfigure(0, weight=1)
-    content_frame.grid_columnconfigure(0, weight=1)
-    
-    lbl = tk.Label(content_frame, text="👥 Visitor List (Coming Soon)",
-                   font=("Segoe UI", 14), bg=BG_COLOR, fg=TEXT_COLOR)
-    lbl.grid(row=0, column=0, padx=20, pady=40)
+    if content_frame:
+        content_frame.grid_rowconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(0, weight=1)
+        
+        lbl = tk.Label(content_frame, text="👥 Visitor List (Coming Soon)",
+                       font=("Segoe UI", 14), bg=BG_COLOR, fg=TEXT_COLOR)
+        lbl.grid(row=0, column=0, padx=20, pady=40)
 
 def show_door_list():
     clear_content()
-    # Configure content_frame's grid weights for centering this content
-    content_frame.grid_rowconfigure(0, weight=1)
-    content_frame.grid_columnconfigure(0, weight=1)
-    
-    lbl = tk.Label(content_frame, text="🚪 Door List (Coming Soon)",
-                   font=("Segoe UI", 14), bg=BG_COLOR, fg=TEXT_COLOR)
-    lbl.grid(row=0, column=0, padx=20, pady=40)
+    if content_frame:
+        content_frame.grid_rowconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(0, weight=1)
+        
+        lbl = tk.Label(content_frame, text="🚪 Door List (Coming Soon)",
+                       font=("Segoe UI", 14), bg=BG_COLOR, fg=TEXT_COLOR)
+        lbl.grid(row=0, column=0, padx=20, pady=40)
 
 def show_access_control():
     clear_content()
-    # Configure content_frame's grid weights for centering this content
-    content_frame.grid_rowconfigure(0, weight=1)
-    content_frame.grid_columnconfigure(0, weight=1)
-    
-    lbl = tk.Label(content_frame, text="🛂 Access Control (Coming Soon)",
-                   font=("Segoe UI", 14), bg=BG_COLOR, fg=TEXT_COLOR)
-    lbl.grid(row=0, column=0, padx=20, pady=40)
+    if content_frame:
+        content_frame.grid_rowconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(0, weight=1)
+        
+        lbl = tk.Label(content_frame, text="🛂 Access Control (Coming Soon)",
+                       font=("Segoe UI", 14), bg=BG_COLOR, fg=TEXT_COLOR)
+        lbl.grid(row=0, column=0, padx=20, pady=40)
 
 def setup_navbar():
     """Creates and returns the navigation bar frame."""
@@ -131,11 +132,9 @@ def setup_styles(style):
     style.configure("TEntry", fieldbackground="white", foreground=TEXT_COLOR, bordercolor=SECONDARY_COLOR, borderwidth=1)
     style.configure("TRadiobutton", background=BG_COLOR, foreground=TEXT_COLOR)
     
-    style.configure("TSuccess.TButton", foreground='white', background=SUCCESS_COLOR, font=("Segoe UI", 11, "bold"), padding=(15, 8), relief="flat")
+    # Reduced padding for smaller button appearance
+    style.configure("TSuccess.TButton", foreground='white', background=SUCCESS_COLOR, font=("Segoe UI", 11, "bold"), padding=(10, 5), relief="flat")
     style.map("TSuccess.TButton", background=[('active', '#27AE60')])
-    
-    style.configure("TDanger.TButton", foreground='white', background=DANGER_COLOR, font=("Segoe UI", 10), padding=(10, 5), relief="flat")
-    style.map("TDanger.TButton", background=[('active', '#C0392B')])
     
     style.configure("TSecondary.TButton", foreground='white', background=SECONDARY_COLOR, font=("Segoe UI", 10), padding=(10, 5), relief="flat")
     style.map("TSecondary.TButton", background=[('active', '#7F8C8D')])
@@ -168,6 +167,7 @@ def init_ui():
     nav.grid(row=1, column=0, sticky="ew")
 
     # --- 4. Content Frame (Row 2, the responsive area) ---
+    # CRITICAL: This line initializes and assigns content_frame
     content_frame = tk.Frame(root, bg=BG_COLOR)
     content_frame.grid(row=2, column=0, sticky="nsew") # Fills the expanded cell
 
@@ -177,6 +177,7 @@ def init_ui():
     tk.Label(footer, text="© 2025 Indsys | Developed by Dhinakaran",
              font=("Segoe UI", 9), bg=BG_COLOR, fg="#7F8C8D").pack(side="left", padx=15)
 
+    # This call is now safe because content_frame is defined above
     show_home()
 
 if __name__ == "__main__":
