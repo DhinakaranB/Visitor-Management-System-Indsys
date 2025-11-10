@@ -7,6 +7,7 @@ import common_api
 import sys
 import os
 import visitor_list_single as single_list
+# import pdb; pdb.set_trace()
 
 
 # Colors
@@ -170,7 +171,7 @@ def setup_navbar():
 
     # Define navbar buttons
     buttons = [
-        ("➕ Add Visitor", show_add_visitor),
+        ("➕ Visitor Registration", show_add_visitor),
         ("👥 Visitor List ▼", show_visitor_dropdown),
         ("🚪 Door List", show_door_list),
         ("🛂 Access Control", show_access_control),
