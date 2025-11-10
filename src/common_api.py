@@ -115,6 +115,67 @@ def send_to_api(data_payload, api_path, clear_callback):
     except Exception as e:
         messagebox.showerror("Unhandled Error", str(e))
 
+# def get_visitor_list():
+#     """Fetch paginated visitor list"""
+#     try:
+#         api_path = "/artemis/api/visitor/v1/visitor/list"
+#         body = json.dumps({"pageNo": 1, "pageSize": 100})
+#         headers = create_signature("POST", body, api_path)
+#         url = f"{BASE_URL}{api_path}"
+
+#         response = requests.post(url, headers=headers, data=body, verify=False, timeout=10)
+#         if response.status_code == 200:
+#             data = response.json()
+#             if data.get("code") == "0":
+#                 return data["data"].get("list", [])
+#             else:
+#                 messagebox.showerror("API Error", f"{data.get('msg')}")
+#                 return []
+#         else:
+#             messagebox.showerror("HTTP Error", f"Status: {response.status_code}\n{response.text}")
+#             return []
+#     except Exception as e:
+#         messagebox.showerror("Error", str(e))
+#         return []
+
+def get_visitor_list():
+    try:
+        api_path = "/artemis/api/visitor/v1/visitor/visitorInfo"
+        body = json.dumps({
+            "pageNo": 1,
+            "pageSize": 100,
+            "searchCriteria": {}
+        })
+
+        headers = create_signature("POST", body, api_path)
+        url = f"{BASE_URL}{api_path}"
+
+        response = requests.post(url, headers=headers, data=body, verify=False, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            print("DEBUG Raw API Response:", data)
+
+            if data.get("code") == "0":
+                visitor_data = data.get("data", {}).get("VisitorInfo", [])
+                print("DEBUG Visitor count:", len(visitor_data))
+                return visitor_data
+            else:
+                messagebox.showerror("API Error", data.get("msg", "Unknown error"))
+                return []
+        else:
+            messagebox.showerror("HTTP Error", f"Status: {response.status_code}\n{response.text}")
+            return []
+    except Exception as e:
+        messagebox.showerror("Unhandled Error", f"Visitor list fetch failed:\n{e}")
+        return []
+
+
+
+
+
+
+
 
 # ------------------------------------------------------------
 # UNIVERSAL CALL FUNCTION (used by visitor_list_single)
@@ -147,3 +208,5 @@ def call_api(api_path, payload_dict=None, method="POST", timeout=10):
     except Exception as e:
         messagebox.showerror("API Error", str(e))
         return None
+    
+    
