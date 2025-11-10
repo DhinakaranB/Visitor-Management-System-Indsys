@@ -174,7 +174,7 @@ def init_ui():
     # --- 5. Footer (Row 3) ---
     footer = tk.Frame(root, bg=BG_COLOR)
     footer.grid(row=3, column=0, sticky="ew", pady=10)
-    tk.Label(footer, text="© 2025 Indsys | Developed by Dhinakaran",
+    tk.Label(footer, text="© 2025 Copyright by Indsys Holdings - All rights reserved.",
              font=("Segoe UI", 9), bg=BG_COLOR, fg="#7F8C8D").pack(side="left", padx=15)
 
     # This call is now safe because content_frame is defined above
