@@ -18,6 +18,10 @@ APP_SECRET = "DBntId5f4LZPfW1Ik5Yh"
 HOST = "127.0.0.1"
 BASE_URL = f"https://{HOST}" 
 
+
+# ------------------------------------------------------------
+# SIGNATURE CREATION
+# ------------------------------------------------------------
 def create_signature(method, body, api_path):
     """Creates the necessary HMAC-SHA256 signature and headers for the API request."""
     accept = "application/json"
@@ -34,7 +38,7 @@ def create_signature(method, body, api_path):
         f"{content_md5}\n"
         f"{content_type}\n"
         f"{headers_to_sign}"
-        f"{api_path}" # Use the dynamic path here
+        f"{api_path}"
     )
 
     hmac_sha256 = hmac.new(APP_SECRET.encode('utf-8'), string_to_sign.encode('utf-8'), hashlib.sha256)
@@ -50,47 +54,43 @@ def create_signature(method, body, api_path):
     }
     return headers
 
+
+# ------------------------------------------------------------
+# SEND DATA TO API (used by add_visitor)
+# ------------------------------------------------------------
 def send_to_api(data_payload, api_path, clear_callback):
     """
     Sends the data payload to the API using the specified path and handles responses.
-    
-    Args:
-        data_payload (dict): The structured data ready for JSON conversion.
-        api_path (str): The specific endpoint path (e.g., /artemis/api/visitor/...).
-        clear_callback (function): Function to clear the form entries on success.
+    Used in add_visitor.py
     """
     try:
         body = json.dumps(data_payload)
         headers = create_signature("POST", body, api_path)
-        
-        URL = f"{BASE_URL}{api_path}" # Construct the full URL
-        
-        # Note: verify=False is used due to the self-signed certificate on localhost (127.0.0.1)
+        URL = f"{BASE_URL}{api_path}"
+
         response = requests.post(URL, headers=headers, data=body, verify=False, timeout=10)
 
         if response.status_code == 200:
             try:
                 res = response.json()
             except json.JSONDecodeError:
-                messagebox.showerror("Response Error", f"Failed to parse JSON response. Text: {response.text}")
+                messagebox.showerror("Response Error", f"Failed to parse JSON response.\n\nText: {response.text}")
                 return
 
             api_code = res.get("code")
             api_msg = res.get("msg", "Unknown error")
             api_data = res.get("data", "")
-            
-            # --- SUCCESS CHECK (API Code "0") ---
+
             if api_code == "0":
                 data = res["data"]
-                appoint_id = data["appointRecordId"]
-                visitor_id = data["visitorId"]
+                appoint_id = data.get("appointRecordId", "-")
+                visitor_id = data.get("visitorId", "-")
                 qr_data = data.get("qrCodeImage")
 
                 qr_message = "No QR code received."
                 if qr_data:
                     try:
                         file_name = f"visitor_qr_{appoint_id}.png"
-                        # NOTE: Ensure the environment allows file writing.
                         with open(file_name, "wb") as img:
                             img.write(base64.b64decode(qr_data))
                         qr_message = f"QR saved as {file_name}"
@@ -98,23 +98,12 @@ def send_to_api(data_payload, api_path, clear_callback):
                         qr_message = f"Failed to save QR code: {qr_e}"
 
                 messagebox.showinfo("✅ Success",
-                    f"Registered!\n\n"
-                    f"Appointment ID: {appoint_id}\n"
-                    f"Visitor ID: {visitor_id}\n"
-                    f"{qr_message}")
-                
-                clear_callback() 
-                
-            # --- SPECIFIC ERROR CHECK (API Code "131" - Resource Already Exists) ---
+                    f"Registered!\n\nAppointment ID: {appoint_id}\nVisitor ID: {visitor_id}\n{qr_message}")
+                clear_callback()
+
             elif api_code == "131":
-                # This handles the "The request resource already exists. [visitor already regist]" error
-                messagebox.showerror(
-                    "🛑 Duplicate Visitor Error", 
-                    f"Code {api_code}: {api_msg}\n\n"
-                    f"This visitor is already registered. Please check the Certificate No. or contact the administrator."
-                )
-            
-            # --- GENERAL API ERROR ---
+                messagebox.showerror("🛑 Duplicate Visitor Error",
+                    f"Code {api_code}: {api_msg}\n\nThis visitor already exists. Please check the Certificate No.")
             else:
                 messagebox.showerror("API Error", f"Code: {api_code}\nMsg: {api_msg}\nDetail: {api_data}")
 
@@ -122,6 +111,39 @@ def send_to_api(data_payload, api_path, clear_callback):
             messagebox.showerror("HTTP Error", f"Status = {response.status_code}\nResponse: {response.text}")
 
     except requests.exceptions.ConnectionError:
-         messagebox.showerror("Connection Error", f"Could not connect to API host: {HOST}. Ensure the service is running and accessible.")
+        messagebox.showerror("Connection Error", f"Could not connect to API host: {HOST}")
     except Exception as e:
         messagebox.showerror("Unhandled Error", str(e))
+
+
+# ------------------------------------------------------------
+# UNIVERSAL CALL FUNCTION (used by visitor_list_single)
+# ------------------------------------------------------------
+def call_api(api_path, payload_dict=None, method="POST", timeout=10):
+    """
+    Universal reusable API caller (for GET or POST).
+    Used in visitor_list_single.py
+    """
+    try:
+        body = json.dumps(payload_dict or {})
+        headers = create_signature(method, body, api_path)
+        URL = f"{BASE_URL}{api_path}"
+
+        print(f"📡 Calling API: {URL}")  # Debug log
+        response = requests.request(method, URL, headers=headers, data=body, verify=False, timeout=timeout)
+
+        if response.status_code == 200:
+            try:
+                return response.json()
+            except json.JSONDecodeError:
+                messagebox.showerror("Response Error", f"Invalid JSON Response:\n\n{response.text}")
+                return None
+        else:
+            messagebox.showerror("HTTP Error", f"Status = {response.status_code}\nResponse: {response.text}")
+            return None
+
+    except requests.exceptions.ConnectionError:
+        messagebox.showerror("Connection Error", f"Cannot connect to API host: {HOST}")
+    except Exception as e:
+        messagebox.showerror("API Error", str(e))
+        return None
