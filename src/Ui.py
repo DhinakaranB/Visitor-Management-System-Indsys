@@ -160,8 +160,8 @@ def setup_navbar():
 
     # Create dropdown for Visitor List
     visitor_menu = tk.Menu(nav, tearoff=0, bg="white", fg=TEXT_COLOR, font=("Segoe UI", 10))
-    visitor_menu.add_command(label="📋 Single Visitor List", command=show_single_visitor_list_external)
-    visitor_menu.add_command(label="📦 Bulk Visitor List", command=show_bulk_visitor_list)
+    visitor_menu.add_command(label="📋 All Visitor List", command=show_single_visitor_list_external)
+    visitor_menu.add_command(label="📦 Edit Visitor List", command=show_bulk_visitor_list)
 
     # Function to open dropdown on click
     def show_visitor_dropdown(event):
