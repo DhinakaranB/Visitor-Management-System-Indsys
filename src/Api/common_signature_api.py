@@ -115,29 +115,6 @@ def send_to_api(data_payload, api_path, clear_callback):
     except Exception as e:
         messagebox.showerror("Unhandled Error", str(e))
 
-# def get_visitor_list():
-#     """Fetch paginated visitor list"""
-#     try:
-#         api_path = "/artemis/api/visitor/v1/visitor/list"
-#         body = json.dumps({"pageNo": 1, "pageSize": 100})
-#         headers = create_signature("POST", body, api_path)
-#         url = f"{BASE_URL}{api_path}"
-
-#         response = requests.post(url, headers=headers, data=body, verify=False, timeout=10)
-#         if response.status_code == 200:
-#             data = response.json()
-#             if data.get("code") == "0":
-#                 return data["data"].get("list", [])
-#             else:
-#                 messagebox.showerror("API Error", f"{data.get('msg')}")
-#                 return []
-#         else:
-#             messagebox.showerror("HTTP Error", f"Status: {response.status_code}\n{response.text}")
-#             return []
-#     except Exception as e:
-#         messagebox.showerror("Error", str(e))
-#         return []
-
 def get_visitor_list():
     try:
         api_path = "/artemis/api/visitor/v1/visitor/visitorInfo"
@@ -169,12 +146,6 @@ def get_visitor_list():
     except Exception as e:
         messagebox.showerror("Unhandled Error", f"Visitor list fetch failed:\n{e}")
         return []
-
-
-
-
-
-
 
 
 # ------------------------------------------------------------

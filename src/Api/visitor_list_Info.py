@@ -1,8 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from common_api import get_visitor_list
+from Api.common_signature_api import get_visitor_list
 
-# --- Constants ---
 BG_COLOR = "#F4F6F7"
 TEXT_COLOR = "#2C3E50"
 PRIMARY_COLOR = "#3498DB"
@@ -10,7 +9,6 @@ HEADER_FONT = ("Segoe UI", 16, "bold")
 CELL_FONT = ("Segoe UI", 10)
 PAGE_SIZE = 20
 
-# Pagination globals
 current_page = 1
 visitors_cache = []
 
@@ -20,16 +18,9 @@ def show_single_visitor_list(root_instance):
     for widget in root_instance.winfo_children():
         widget.destroy()
 
-    # --- Title ---
-    tk.Label(
-        root_instance,
-        text="👥 Visitor List",
-        font=HEADER_FONT,
-        bg=BG_COLOR,
-        fg=PRIMARY_COLOR
-    ).pack(pady=(15, 10))
+    tk.Label(root_instance, text="👥 Visitor List",
+             font=HEADER_FONT, bg=BG_COLOR, fg=PRIMARY_COLOR).pack(pady=(15, 10))
 
-    # --- Table Frame ---
     table_frame = tk.Frame(root_instance, bg=BG_COLOR)
     table_frame.pack(fill="both", expand=True, padx=30, pady=10)
 
@@ -37,15 +28,9 @@ def show_single_visitor_list(root_instance):
     xscroll = ttk.Scrollbar(table_frame, orient="horizontal")
 
     columns = ("visitorId", "visitorFullName", "companyName", "phoneNo", "gender", "remark")
-
-    table = ttk.Treeview(
-        table_frame,
-        columns=columns,
-        show="headings",
-        yscrollcommand=yscroll.set,
-        xscrollcommand=xscroll.set,
-        style="Modern.Treeview"
-    )
+    table = ttk.Treeview(table_frame, columns=columns, show="headings",
+                         yscrollcommand=yscroll.set, xscrollcommand=xscroll.set,
+                         style="Modern.Treeview")
 
     yscroll.config(command=table.yview)
     xscroll.config(command=table.xview)
@@ -53,47 +38,29 @@ def show_single_visitor_list(root_instance):
     xscroll.pack(side="bottom", fill="x")
     table.pack(fill="both", expand=True)
 
-    # --- Column Setup ---
-    table.heading("visitorId", text="Visitor ID")
-    table.heading("visitorFullName", text="Name")
-    table.heading("companyName", text="Company")
-    table.heading("phoneNo", text="Phone No")
-    table.heading("gender", text="Gender")
-    table.heading("remark", text="Remark")
+    for col, text in [
+        ("visitorId", "Visitor ID"),
+        ("visitorFullName", "Name"),
+        ("companyName", "Company"),
+        ("phoneNo", "Phone No"),
+        ("gender", "Gender"),
+        ("remark", "Remark")
+    ]:
+        table.heading(col, text=text)
+        table.column(col, width=150, anchor="center")
 
-    table.column("visitorId", width=90, anchor="center")
-    table.column("visitorFullName", width=150, anchor="center")
-    table.column("companyName", width=150, anchor="center")
-    table.column("phoneNo", width=130, anchor="center")
-    table.column("gender", width=100, anchor="center")
-    table.column("remark", width=180, anchor="center")
-
-    # --- Custom Table Styling ---
     style = ttk.Style()
-    style.theme_use("clam")  # ✅ stable and modern
-    style.configure(
-        "Modern.Treeview",
-        background="white",
-        foreground=TEXT_COLOR,
-        rowheight=28,
-        fieldbackground="white",
-        font=CELL_FONT,
-        bordercolor="#D6DBDF",
-        borderwidth=1
-    )
-    style.configure(
-        "Modern.Treeview.Heading",
-        background=PRIMARY_COLOR,
-        foreground="white",
-        font=("Segoe UI", 10, "bold"),
-        bordercolor="#2980B9"
-    )
+    style.theme_use("clam")
+    style.configure("Modern.Treeview",
+                    background="white", foreground=TEXT_COLOR,
+                    rowheight=28, fieldbackground="white", font=CELL_FONT)
+    style.configure("Modern.Treeview.Heading",
+                    background=PRIMARY_COLOR, foreground="white",
+                    font=("Segoe UI", 10, "bold"))
 
-    # --- Alternate Row Colors ---
     table.tag_configure("oddrow", background="#F8F9F9")
     table.tag_configure("evenrow", background="#EAF2F8")
 
-    # --- Load Data ---
     try:
         if not visitors_cache:
             visitors_cache = get_visitor_list()
@@ -103,17 +70,16 @@ def show_single_visitor_list(root_instance):
             tk.Label(root_instance, text="No visitors found.", bg=BG_COLOR, fg=TEXT_COLOR).pack(pady=15)
             return
 
-        update_table_with_page_data(table, root_instance)
+        update_table_with_page_data(table)
 
     except Exception as e:
         messagebox.showerror("Error", f"Failed to load visitors:\n{e}")
 
-    # --- Controls (Pagination + Refresh) ---
     control_frame = tk.Frame(root_instance, bg=BG_COLOR)
     control_frame.pack(pady=10)
 
-    prev_btn = ttk.Button(control_frame, text="⬅ Prev", command=lambda: change_page(-1, table, root_instance))
-    next_btn = ttk.Button(control_frame, text="Next ➡", command=lambda: change_page(1, table, root_instance))
+    prev_btn = ttk.Button(control_frame, text="⬅ Prev", command=lambda: change_page(-1, table))
+    next_btn = ttk.Button(control_frame, text="Next ➡", command=lambda: change_page(1, table))
     refresh_btn = ttk.Button(control_frame, text="🔄 Refresh", command=lambda: refresh_data(root_instance))
 
     prev_btn.grid(row=0, column=0, padx=5)
@@ -124,12 +90,9 @@ def show_single_visitor_list(root_instance):
     page_label.grid(row=0, column=1, padx=10)
     update_page_label(page_label)
 
-
-# --- Helper Functions ---
-def update_table_with_page_data(table, root_instance):
+def update_table_with_page_data(table):
     global current_page, visitors_cache
     table.delete(*table.get_children())
-
     gender_map = {0: "Undefined", 1: "Male", 2: "Female"}
     start = (current_page - 1) * PAGE_SIZE
     end = start + PAGE_SIZE
@@ -151,18 +114,13 @@ def update_page_label(label):
     total_pages = max(1, (len(visitors_cache) + PAGE_SIZE - 1) // PAGE_SIZE)
     label.config(text=f"Page {current_page} of {total_pages}")
 
-def change_page(direction, table, root_instance):
+def change_page(direction, table):
     global current_page, visitors_cache
     total_pages = max(1, (len(visitors_cache) + PAGE_SIZE - 1) // PAGE_SIZE)
     new_page = current_page + direction
     if 1 <= new_page <= total_pages:
         current_page = new_page
-        update_table_with_page_data(table, root_instance)
-        for widget in root_instance.winfo_children():
-            if isinstance(widget, tk.Frame):
-                for child in widget.winfo_children():
-                    if isinstance(child, tk.Label) and "Page" in child.cget("text"):
-                        update_page_label(child)
+        update_table_with_page_data(table)
     else:
         messagebox.showinfo("Pagination", "No more pages.")
 

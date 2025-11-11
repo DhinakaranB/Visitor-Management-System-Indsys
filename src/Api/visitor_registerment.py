@@ -3,8 +3,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
-import common_api as api_handler
-import Ui
+import Api.common_signature_api as api_handler
+import Homepage.Ui
 
 # --- Constants ---
 BG_COLOR = "#F4F6F7"
@@ -101,7 +101,7 @@ def handle_send(root_instance):
         def safe_transition_to_home():
             clear_form_entries(root_instance)
             main_root = root_instance.winfo_toplevel()
-            main_root.after(0, Ui.show_home)
+            main_root.after(0, Homepage.Ui.show_home)
 
         api_handler.send_to_api(data_payload, VISITOR_API_PATH, safe_transition_to_home)
 
