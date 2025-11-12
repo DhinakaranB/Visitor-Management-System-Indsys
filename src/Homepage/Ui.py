@@ -100,9 +100,9 @@ def setup_navbar():
     visitor_menu.add_command(
         label="📋 All Visitor List", command=show_single_visitor_list_external
     )
-    visitor_menu.add_command(
-        label="📦 Visitor List Update", command=lambda: print("Bulk Visitor list soon")
-    )
+    # visitor_menu.add_command(
+    #     label="📦 Visitor List Update", command=lambda: print("Bulk Visitor list soon")
+    # )
 
     def show_visitor_dropdown(event):
         x = event.widget.winfo_rootx()
