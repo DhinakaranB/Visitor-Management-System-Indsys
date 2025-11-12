@@ -59,24 +59,31 @@
 # root.mainloop()
 
 
-import sys
 import os
+import sys
 import runpy
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = os.path.join(BASE_DIR, "src")
-HOMEPAGE_DIR = os.path.join(SRC_DIR, "Homepage")
+LOGIN_DIR = os.path.join(SRC_DIR, "Homepage")
 
-# Ensure paths exist
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
-if HOMEPAGE_DIR not in sys.path:
-    sys.path.insert(0, HOMEPAGE_DIR)
+if LOGIN_DIR not in sys.path:
+    sys.path.insert(0, LOGIN_DIR)
 
-print("🚀 Launching Visitor Management System UI...")
+def start_login():
+    """Starts the login window"""
+    print("Starting Visitor Management System login...")
+    runpy.run_path(os.path.join(LOGIN_DIR, "ui.py"), run_name="__main__")
 
-# Run ui.py directly, as if you ran it from its folder
-runpy.run_path(os.path.join(HOMEPAGE_DIR, "ui.py"), run_name="__main__")
+if __name__ == "__main__":
+    start_login()
+
+
+
+
+
 
 
 
