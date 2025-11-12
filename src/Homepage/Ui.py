@@ -94,26 +94,54 @@ def setup_navbar():
     nav = tk.Frame(root, bg=NAV_COLOR, relief="raised", bd=1)
     nav.grid(row=1, column=0, sticky="ew")
 
-    visitor_menu = tk.Menu(
-        nav, tearoff=0, bg="white", fg=TEXT_COLOR, font=("Segoe UI", 10)
-    )
-    visitor_menu.add_command(
-        label="📋 All Visitor List", command=show_single_visitor_list_external
-    )
-    # visitor_menu.add_command(
-    #     label="📦 Visitor List Update", command=lambda: print("Bulk Visitor list soon")
-    # )
+    # --- Visitor Dropdown ---
+    visitor_menu = tk.Menu(nav, tearoff=0, bg="white", fg=TEXT_COLOR, font=("Segoe UI", 10))
+    visitor_menu.add_command(label="📋 All Visitor List", command=show_single_visitor_list_external)
 
     def show_visitor_dropdown(event):
         x = event.widget.winfo_rootx()
         y = event.widget.winfo_rooty() + event.widget.winfo_height()
         visitor_menu.tk_popup(x, y)
 
+    # --- Door Dropdown ---
+    door_menu = tk.Menu(nav, tearoff=0, bg="white", fg=TEXT_COLOR, font=("Segoe UI", 10))
+
+    # Dropdown functions
+    def open_door_list():
+        show_door_list()
+
+    def open_linked_doors():
+        clear_content()
+        import Api.linked_door_info as linked_doors  # 🧩 create your LinkedDoors UI here
+        linked_doors.show_linked_doors(content_frame)
+
+    def open_door_access():
+        clear_content()
+        lbl = tk.Label(
+            content_frame,
+            text="🚪 Door Access (Coming Soon)",
+            font=("Segoe UI", 14),
+            bg=BG_COLOR,
+            fg=TEXT_COLOR,
+        )
+        lbl.grid(row=0, column=0, padx=20, pady=40)
+
+    # Dropdown options
+    door_menu.add_command(label="Door List", command=open_door_list)
+    door_menu.add_command(label="Linked Doors", command=open_linked_doors)
+    door_menu.add_command(label="Door Access", command=open_door_access)
+
+    def show_door_dropdown(event):
+        x = event.widget.winfo_rootx()
+        y = event.widget.winfo_rooty() + event.widget.winfo_height()
+        door_menu.tk_popup(x, y)
+
+    # --- Navbar Buttons ---
     buttons = [
         ("🏠 Home", show_home),
         ("➕ Add Visitor", show_add_visitor),
         ("👥 Visitor List ▼", show_visitor_dropdown),
-        ("🚪 Door List", show_door_list),
+        ("🚪 Door ▼", show_door_dropdown),
         ("🛂 Access Control", show_access_control),
         ("❌ Exit", close_application),
     ]
@@ -121,12 +149,13 @@ def setup_navbar():
     for text, cmd in buttons:
         btn = ttk.Button(nav, text=text, style="Nav.TButton")
         btn.pack(side="left", padx=10, pady=6)
-        if text.startswith("👥"):
+        if text.endswith("▼"):
             btn.bind("<Button-1>", cmd)
         else:
             btn.config(command=cmd)
 
     return nav
+
 
 
 # 🔹 Styles

@@ -7,13 +7,14 @@ BG_COLOR = "#F4F6F7"
 TEXT_COLOR = "#2C3E50"
 
 def show_door_list(parent_frame):
-    """Fetch and display Access Control Device List from Hikvision"""
+    """Fetch and display Access Control Devices."""
     for widget in parent_frame.winfo_children():
         widget.destroy()
 
     frame = tk.Frame(parent_frame, bg=BG_COLOR)
     frame.pack(fill="both", expand=True, padx=20, pady=20)
 
+    # 🔹 Title
     tk.Label(
         frame,
         text="🚪 Door Device List",
@@ -22,58 +23,43 @@ def show_door_list(parent_frame):
         fg=TEXT_COLOR
     ).pack(pady=10)
 
-    columns = (
-        "acsDevIndexCode",
-        "acsDevName",
-        "acsDevIp",
-        "acsDevPort",
-        "status",
-        "treatyType",
-    )
-    tree = ttk.Treeview(frame, columns=columns, show="headings", height=20)
-    tree.pack(fill="both", expand=True, pady=10)
+    # 🔹 Device Table
+    columns = ("acsDevIndexCode", "acsDevName", "acsDevIp", "acsDevPort", "status", "treatyType")
+    tree = ttk.Treeview(frame, columns=columns, show="headings", height=12)
+    tree.pack(fill="x", padx=20, pady=10)
 
-    # Headings
-    tree.heading("acsDevIndexCode", text="Device ID")
-    tree.heading("acsDevName", text="Device Name")
-    tree.heading("acsDevIp", text="IP Address")
-    tree.heading("acsDevPort", text="Port")
-    tree.heading("status", text="Status")
-    tree.heading("treatyType", text="Protocol Type")
+    for col in columns:
+        tree.heading(col, text=col.replace("acsDevIndexCode", "Device ID")
+                                   .replace("acsDevName", "Device Name")
+                                   .replace("acsDevIp", "IP Address")
+                                   .replace("acsDevPort", "Port")
+                                   .replace("status", "Status")
+                                   .replace("treatyType", "Protocol"))
+        tree.column(col, anchor="center", width=160)
 
-    # Column width
-    tree.column("acsDevIndexCode", width=150, anchor="center")
-    tree.column("acsDevName", width=200, anchor="center")
-    tree.column("acsDevIp", width=150, anchor="center")
-    tree.column("acsDevPort", width=100, anchor="center")
-    tree.column("status", width=120, anchor="center")
-    tree.column("treatyType", width=150, anchor="center")
+    # 🔹 Scrollbar
+    scrollbar_device = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
+    tree.configure(yscroll=scrollbar_device.set)
+    scrollbar_device.pack(side="right", fill="y")
 
-    # Scrollbar
-    scrollbar = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
-    tree.configure(yscroll=scrollbar.set)
-    scrollbar.pack(side="right", fill="y")
-
-    # Refresh button
+    # 🔹 Refresh Button
     ttk.Button(frame, text="🔄 Refresh", command=lambda: show_door_list(parent_frame)).pack(pady=5)
 
-    # Fetch API
+    # 🛰️ Fetch Device Data
     api_path = "/artemis/api/resource/v1/acsDevice/acsDeviceList"
     payload = {"pageNo": 1, "pageSize": 50}
 
     res = common_signature_api.call_api(api_path, payload)
-    print("DEBUG Raw Response:", res)  # Keep for debugging
+    print("DEBUG Device List:", res)
 
     if not res:
         messagebox.showerror("Error", "No response from Hikvision API.")
         return
 
     if res.get("code") == "0":
-        data = res.get("data", {})
-        devices = data.get("list", [])
-
+        devices = res.get("data", {}).get("list", [])
         if not devices:
-            messagebox.showinfo("Info", "No Access Control Devices found.")
+            messagebox.showinfo("Info", "No devices found.")
             return
 
         for dev in devices:
@@ -96,4 +82,4 @@ def show_door_list(parent_frame):
                 dev.get("treatyType", "-")
             ))
     else:
-        messagebox.showerror("API Error", f"Code: {res.get('code')}\nMessage: {res.get('msg')}")
+        messagebox.showerror("API Error", res.get("msg", "Unknown Error"))
