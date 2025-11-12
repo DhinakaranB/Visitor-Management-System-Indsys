@@ -1,12 +1,15 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import sys, os
 
-# 🧭 Path Setup
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Api import visitor_registerment as visitor_form
-from Api import visitor_list_Info as visitor_list
-import Api.common_signature_api
+import os, sys
+# add project root (one level above 'src') to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+
+from src.Api.visitor_screen import visitor_registerment as visitor_form
+from src.Api.visitor_screen import visitor_list_Info as visitor_list
+from src.Api.Common_signature import common_signature_api
+from src.Api.Door_screen import door_list_Info as door_list
+from src.Api.Door_screen import linked_door_info as linked_doors
 
 # 🎨 COLORS
 BG_COLOR = "#F4F6F7"
@@ -72,8 +75,24 @@ def show_single_visitor_list_external():
 
 def show_door_list():
     clear_content()
-    import Api.door_list_Info as door_list
     door_list.show_door_list(content_frame)
+
+
+def show_linked_doors():
+    clear_content()
+    linked_doors.show_linked_doors(content_frame)
+
+
+def show_door_access():
+    clear_content()
+    lbl = tk.Label(
+        content_frame,
+        text="🚪 Door Access (Coming Soon)",
+        font=("Segoe UI", 14),
+        bg=BG_COLOR,
+        fg=TEXT_COLOR,
+    )
+    lbl.grid(row=0, column=0, padx=20, pady=40)
 
 
 def show_access_control():
@@ -105,31 +124,9 @@ def setup_navbar():
 
     # --- Door Dropdown ---
     door_menu = tk.Menu(nav, tearoff=0, bg="white", fg=TEXT_COLOR, font=("Segoe UI", 10))
-
-    # Dropdown functions
-    def open_door_list():
-        show_door_list()
-
-    def open_linked_doors():
-        clear_content()
-        import Api.linked_door_info as linked_doors  # 🧩 create your LinkedDoors UI here
-        linked_doors.show_linked_doors(content_frame)
-
-    def open_door_access():
-        clear_content()
-        lbl = tk.Label(
-            content_frame,
-            text="🚪 Door Access (Coming Soon)",
-            font=("Segoe UI", 14),
-            bg=BG_COLOR,
-            fg=TEXT_COLOR,
-        )
-        lbl.grid(row=0, column=0, padx=20, pady=40)
-
-    # Dropdown options
-    door_menu.add_command(label="Door List", command=open_door_list)
-    door_menu.add_command(label="Linked Doors", command=open_linked_doors)
-    door_menu.add_command(label="Door Access", command=open_door_access)
+    door_menu.add_command(label="🚪 Door List", command=show_door_list)
+    door_menu.add_command(label="🔗 Linked Doors", command=show_linked_doors)
+    door_menu.add_command(label="🛠 Door Access", command=show_door_access)
 
     def show_door_dropdown(event):
         x = event.widget.winfo_rootx()
@@ -155,7 +152,6 @@ def setup_navbar():
             btn.config(command=cmd)
 
     return nav
-
 
 
 # 🔹 Styles
@@ -221,15 +217,11 @@ def show_login_screen():
         fg="#777",
     ).pack(pady=(0, 20))
 
-    tk.Label(login_frame, text="Username", font=("Segoe UI", 10), bg="white").pack(
-        anchor="w", padx=40
-    )
+    tk.Label(login_frame, text="Username", font=("Segoe UI", 10), bg="white").pack(anchor="w", padx=40)
     username_entry = tk.Entry(login_frame, width=28, font=("Segoe UI", 11))
     username_entry.pack(pady=(3, 10))
 
-    tk.Label(login_frame, text="Password", font=("Segoe UI", 10), bg="white").pack(
-        anchor="w", padx=40
-    )
+    tk.Label(login_frame, text="Password", font=("Segoe UI", 10), bg="white").pack(anchor="w", padx=40)
     password_entry = tk.Entry(login_frame, show="*", width=28, font=("Segoe UI", 11))
     password_entry.pack(pady=(3, 15))
 
@@ -238,7 +230,6 @@ def show_login_screen():
         pwd = password_entry.get().strip()
 
         if user == "admin" and pwd == "1234":
-            # messagebox.showinfo("Login Success", f"Welcome {user} 😎")
             login_frame.destroy()  # hide login
             setup_navbar()  # show navbar
             content_frame.grid(row=2, column=0, sticky="nsew")

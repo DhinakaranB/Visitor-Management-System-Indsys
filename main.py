@@ -63,19 +63,25 @@ import os
 import sys
 import runpy
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SRC_DIR = os.path.join(BASE_DIR, "src")
-LOGIN_DIR = os.path.join(SRC_DIR, "Homepage")
 
+# --- Centralized pycache (optional clean-up) ---
+sys.pycache_prefix = os.path.join(os.path.dirname(__file__), "__all_pycache__")
+
+# --- Path setup ---
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+SRC_DIR = os.path.join(BASE_DIR, "src")
+LOGIN_DIR = os.path.join(SRC_DIR, "Api", "Homepage")
+
+# --- Ensure correct import paths ---
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 if LOGIN_DIR not in sys.path:
     sys.path.insert(0, LOGIN_DIR)
 
 def start_login():
-    """Starts the login window"""
+    """Starts the Visitor Management System UI"""
     print("Starting Visitor Management System login...")
-    runpy.run_path(os.path.join(LOGIN_DIR, "ui.py"), run_name="__main__")
+    runpy.run_path(os.path.join(LOGIN_DIR, "Ui.py"), run_name="__main__")
 
 if __name__ == "__main__":
     start_login()
