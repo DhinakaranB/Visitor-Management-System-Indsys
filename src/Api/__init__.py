@@ -2,6 +2,7 @@ import sys, os
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
+
 import tkinter as tk
 from tkinter import ttk
 from src.Api.visitor_screen import visitor_registerment as visitor_form

@@ -1,297 +1,338 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-
 import os, sys
-# add project root (one level above 'src') to sys.path
+
+# -----------------------------------------
+# SAFE IMPORT HANDLING
+# -----------------------------------------
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
-from src.Api.visitor_screen import visitor_registerment as visitor_form
-from src.Api.visitor_screen import visitor_list_Info as visitor_list
-from src.Api.Common_signature import common_signature_api
-from src.Api.Door_screen import door_list_Info as door_list
-from src.Api.Door_screen import linked_door_info as linked_doors
+try:
+    from src.Api.visitor_screen import visitor_registerment as visitor_form
+    from src.Api.visitor_screen import visitor_list_Info as visitor_list
+    from src.Api.Common_signature import common_signature_api
+    from src.Api.Door_screen import door_list_Info as door_list
+    from src.Api.Door_screen import linked_door_info as linked_doors
+except:
+    class MockAPI:
+        def show_create_form(*a): print("Mock: show_create_form")
+        def show_single_visitor_list(*a): print("Mock: show_single_visitor_list")
+        def show_door_list(*a): print("Mock: show_door_list")
+        def show_linked_doors(*a): print("Mock: show_linked_doors")
 
-# 🎨 COLORS
-BG_COLOR = "#F4F6F7"
-NAV_COLOR = "#FFFFFF"
-PRIMARY_COLOR = "#3498DB"
+    visitor_form = MockAPI()
+    visitor_list = MockAPI()
+    door_list = MockAPI()
+    linked_doors = MockAPI()
+
+
+# -----------------------------------------
+# COLORS
+# -----------------------------------------
+BG_COLOR = "#D6EAF8"
+NAVBAR_BLUE = "#0A74FF"
+WHITE = "#FFFFFF"
 TEXT_COLOR = "#2C3E50"
-SUCCESS_COLOR = "#2ECC71"
-SECONDARY_COLOR = "#95A5A6"
+PRIMARY_COLOR = "#2C3EFA"
+
+GRADIENT_START = (99, 66, 255)
+GRADIENT_END   = (255, 102, 178)
 
 root = None
 content_frame = None
 nav = None
 login_frame = None
 
+username_entry = None
+password_entry = None
 
-# 🔹 Utility Functions
+
+# -----------------------------------------
+# GRADIENT ENGINE
+# -----------------------------------------
+def rgb_to_hex(r, g, b):
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+def lerp(a, b, t):
+    return int(a + (b - a) * t)
+
+def draw_vertical_gradient(c, x, y, w, h, start_rgb, end_rgb, steps=200):
+    for i in range(steps):
+        t = i / (steps - 1)
+        r = lerp(start_rgb[0], end_rgb[0], t)
+        g = lerp(start_rgb[1], end_rgb[1], t)
+        b = lerp(start_rgb[2], end_rgb[2], t)
+        color = rgb_to_hex(r, g, b)
+        y0 = y + int(i * (h / steps))
+        y1 = y + int((i + 1) * (h / steps))
+        c.create_rectangle(x, y0, x + w, y1, outline=color, fill=color)
+
+
+# -----------------------------------------
+# MAIN CONTENT SCREENS
+# -----------------------------------------
 def clear_content():
-    """Remove all widgets from content area."""
     if content_frame:
-        for widget in content_frame.winfo_children():
-            widget.destroy()
-
+        for w in content_frame.winfo_children():
+            w.destroy()
 
 def close_application():
-    """Exit the app."""
-    if root:
-        root.quit()
-        root.destroy()
+    root.destroy()
 
-
-# 🏠 Home Screen
 def show_home():
     clear_content()
-    home_center = tk.Frame(content_frame, bg=BG_COLOR)
-    home_center.grid(row=0, column=0, sticky="nsew")
+    content_frame.grid_rowconfigure(0, weight=1)
+    content_frame.grid_columnconfigure(0, weight=1)
+
+    box = tk.Frame(content_frame, bg=BG_COLOR)
+    box.grid(row=0, column=0, sticky="nsew")
 
     tk.Label(
-        home_center,
+        box,
         text="Welcome to Visitor Management System 👋",
         font=("Segoe UI", 22, "bold"),
         bg=BG_COLOR,
-        fg=PRIMARY_COLOR,
-    ).pack(pady=(50, 10))
+        fg=PRIMARY_COLOR
+    ).pack(pady=(50,10))
 
     tk.Label(
-        home_center,
+        box,
         text="Use the navigation bar above to manage visitor appointments and access control.",
         font=("Segoe UI", 12),
         bg=BG_COLOR,
-        fg=TEXT_COLOR,
-    ).pack(pady=(0, 20))
-
+        fg=TEXT_COLOR
+    ).pack(pady=10)
 
 def show_add_visitor():
     clear_content()
     visitor_form.show_create_form(content_frame, show_home, close_application)
 
-
 def show_single_visitor_list_external():
     clear_content()
     visitor_list.show_single_visitor_list(content_frame)
 
-
 def show_door_list():
     clear_content()
     door_list.show_door_list(content_frame)
-
 
 def show_linked_doors():
     clear_content()
     linked_doors.show_linked_doors(content_frame)
 
 
-def show_door_access():
-    clear_content()
-    lbl = tk.Label(
-        content_frame,
-        text="🚪 Door Access (Coming Soon)",
-        font=("Segoe UI", 14),
-        bg=BG_COLOR,
-        fg=TEXT_COLOR,
-    )
-    lbl.grid(row=0, column=0, padx=20, pady=40)
+# -----------------------------------------
+# DROPDOWN
+# -----------------------------------------
+def open_door_dropdown(widget):
+    menu = tk.Toplevel(root)
+    menu.overrideredirect(True)
+    menu.config(bg="white")
+
+    x = widget.winfo_rootx()
+    y = widget.winfo_rooty() + widget.winfo_height()
+    menu.geometry(f"180x120+{x}+{y}")
+
+    def item(txt, cmd):
+        lbl = tk.Label(menu, text=txt, bg="white", fg="#1F2D3D",
+                       font=("Segoe UI",10), padx=10, pady=7, anchor="w")
+        lbl.pack(fill="x")
+        lbl.bind("<Enter>", lambda e: lbl.config(bg="#EEF3FF"))
+        lbl.bind("<Leave>", lambda e: lbl.config(bg="white"))
+        lbl.bind("<Button-1>", lambda e: (menu.destroy(), cmd()))
+
+    item("🚪 Door List", show_door_list)
+    item("🔗 Linked Doors", show_linked_doors)
+
+    menu.bind("<FocusOut>", lambda e: menu.destroy())
 
 
-def show_access_control():
-    clear_content()
-    lbl = tk.Label(
-        content_frame,
-        text="🛂 Access Control (Coming Soon)",
-        font=("Segoe UI", 14),
-        bg=BG_COLOR,
-        fg=TEXT_COLOR,
-    )
-    lbl.grid(row=0, column=0, padx=20, pady=40)
-
-
-# 🔹 Navbar
+# -----------------------------------------
+# NAVBAR
+# -----------------------------------------
 def setup_navbar():
     global nav
-    nav = tk.Frame(root, bg=NAV_COLOR, relief="raised", bd=1)
-    nav.grid(row=1, column=0, sticky="ew")
 
-    # --- Visitor Dropdown ---
-    visitor_menu = tk.Menu(nav, tearoff=0, bg="white", fg=TEXT_COLOR, font=("Segoe UI", 10))
-    visitor_menu.add_command(label="📋 All Visitor List", command=show_single_visitor_list_external)
+    nav = tk.Frame(root, bg=NAVBAR_BLUE, height=55)
+    nav.grid_propagate(False)
 
-    def show_visitor_dropdown(event):
-        x = event.widget.winfo_rootx()
-        y = event.widget.winfo_rooty() + event.widget.winfo_height()
-        visitor_menu.tk_popup(x, y)
+    left = tk.Frame(nav, bg=NAVBAR_BLUE)
+    left.pack(side="left", fill="y")
 
-    # --- Door Dropdown ---
-    door_menu = tk.Menu(nav, tearoff=0, bg="white", fg=TEXT_COLOR, font=("Segoe UI", 10))
-    door_menu.add_command(label="🚪 Door List", command=show_door_list)
-    door_menu.add_command(label="🔗 Linked Doors", command=show_linked_doors)
-    door_menu.add_command(label="🛠 Door Access", command=show_door_access)
+    tk.Label(left, text="VisitorMS", bg=NAVBAR_BLUE, fg=WHITE,
+             font=("Segoe UI",15,"bold"), padx=18).pack(side="left")
 
-    def show_door_dropdown(event):
-        x = event.widget.winfo_rootx()
-        y = event.widget.winfo_rooty() + event.widget.winfo_height()
-        door_menu.tk_popup(x, y)
+    def menu(text, cmd=None):
+        lbl = tk.Label(left, text=text, bg=NAVBAR_BLUE, fg=WHITE,
+                       font=("Segoe UI",11), padx=15, cursor="hand2")
+        lbl.pack(side="left")
+        lbl.bind("<Enter>", lambda e: lbl.config(fg="#DCE6FF"))
+        lbl.bind("<Leave>", lambda e: lbl.config(fg=WHITE))
+        if cmd:
+            lbl.bind("<Button-1>", lambda e: cmd())
+        return lbl
 
-    # --- Navbar Buttons ---
-    buttons = [
-        ("🏠 Home", show_home),
-        ("➕ Add Visitor", show_add_visitor),
-        ("👥 Visitor List ▼", show_visitor_dropdown),
-        ("🚪 Door ▼", show_door_dropdown),
-        ("🛂 Access Control", show_access_control),
-        ("❌ Exit", close_application),
-    ]
+    menu("Home", show_home)
+    menu("Add Visitor", show_add_visitor)
+    menu("Visitor List", show_single_visitor_list_external)
 
-    for text, cmd in buttons:
-        btn = ttk.Button(nav, text=text, style="Nav.TButton")
-        btn.pack(side="left", padx=10, pady=6)
-        if text.endswith("▼"):
-            btn.bind("<Button-1>", cmd)
-        else:
-            btn.config(command=cmd)
+    d = menu("Door ▼")
+    d.bind("<Button-1>", lambda e: open_door_dropdown(d))
+
+    menu("Access Control", lambda: None)
 
     return nav
 
 
-# 🔹 Styles
-def setup_styles(style):
-    style.theme_use("clam")
+# -----------------------------------------
+# LOGIN VALIDATION
+# -----------------------------------------
+def validate_login():
+    global nav
 
-    style.configure(
-        "Nav.TButton",
-        font=("Segoe UI", 10, "bold"),
-        foreground="white",
-        background=PRIMARY_COLOR,
-        padding=(8, 5),
-        relief="flat",
-        borderwidth=0,
-        focusthickness=3,
-        focuscolor="none",
-    )
-    style.map(
-        "Nav.TButton",
-        background=[("active", "#2E86C1")],
-        relief=[("pressed", "flat")],
-    )
+    user = username_entry.get().strip()
+    pwd  = password_entry.get().strip()
 
-    style.configure("TEntry", fieldbackground="white", foreground=TEXT_COLOR)
-    style.configure("TRadiobutton", background=BG_COLOR, foreground=TEXT_COLOR)
-    style.configure(
-        "TSuccess.TButton",
-        foreground="white",
-        background=SUCCESS_COLOR,
-        font=("Segoe UI", 11, "bold"),
-        padding=(10, 5),
-    )
-    style.map("TSuccess.TButton", background=[("active", "#27AE60")])
-    style.configure(
-        "TSecondary.TButton",
-        foreground="white",
-        background=SECONDARY_COLOR,
-        font=("Segoe UI", 10),
-        padding=(10, 5),
-    )
-    style.map("TSecondary.TButton", background=[("active", "#7F8C8D")])
+    if user == "admin" and pwd == "1234":
+        login_frame.destroy()
+
+        nav.grid(row=0, column=0, sticky="ew")
+        content_frame.grid(row=1, column=0, sticky="nsew")
+        show_home()
+
+        footer = root.grid_slaves(row=2)
+        if footer:
+            footer[0].grid()
+
+    else:
+        messagebox.showerror("Error", "Invalid Login! Use admin / 1234")
 
 
-# 🔐 LOGIN SCREEN
+
+# -----------------------------------------
+# MODERN LOGIN SCREEN (FINAL FIXED VERSION)
+# -----------------------------------------
 def show_login_screen():
-    """Displays login form before showing main UI."""
-    global login_frame
-    login_frame = tk.Frame(root, bg="white", width=400, height=320)
-    login_frame.place(relx=0.5, rely=0.5, anchor="center")
+    global login_frame, username_entry, password_entry
 
-    tk.Label(
-        login_frame,
-        text="Welcome Back 👋",
-        font=("Segoe UI", 18, "bold"),
-        bg="white",
-        fg="#222",
-    ).pack(pady=(20, 5))
-    tk.Label(
-        login_frame,
-        text="Sign in to continue",
-        font=("Segoe UI", 10),
-        bg="white",
-        fg="#777",
-    ).pack(pady=(0, 20))
+    try:
+        login_frame.destroy()
+    except:
+        pass
 
-    tk.Label(login_frame, text="Username", font=("Segoe UI", 10), bg="white").pack(anchor="w", padx=40)
-    username_entry = tk.Entry(login_frame, width=28, font=("Segoe UI", 11))
-    username_entry.pack(pady=(3, 10))
+    login_frame = tk.Frame(root, bg=BG_COLOR)
+    login_frame.grid(row=0, column=0, rowspan=4, sticky="nsew")
 
-    tk.Label(login_frame, text="Password", font=("Segoe UI", 10), bg="white").pack(anchor="w", padx=40)
-    password_entry = tk.Entry(login_frame, show="*", width=28, font=("Segoe UI", 11))
-    password_entry.pack(pady=(3, 15))
+    login_frame.grid_columnconfigure(0, weight=6)
+    login_frame.grid_columnconfigure(1, weight=4)
+    login_frame.grid_rowconfigure(0, weight=1)
 
-    def validate_login():
-        user = username_entry.get().strip()
-        pwd = password_entry.get().strip()
+    # -----------------------
+    # LEFT GRADIENT PANEL
+    # -----------------------
+    left_canvas = tk.Canvas(login_frame, highlightthickness=0, bd=0)
+    left_canvas.grid(row=0, column=0, sticky="nsew")
 
-        if user == "admin" and pwd == "1234":
-            login_frame.destroy()  # hide login
-            setup_navbar()  # show navbar
-            content_frame.grid(row=2, column=0, sticky="nsew")
-            show_home()
-        else:
-            messagebox.showerror("Error", "Invalid login credentials!")
+    def draw_left(event=None):
+        left_canvas.delete("all")
+        w = left_canvas.winfo_width()
+        h = left_canvas.winfo_height()
 
-    tk.Button(
-        login_frame,
-        text="🔓 Secure Sign In",
-        bg=PRIMARY_COLOR,
-        fg="white",
-        font=("Segoe UI", 11, "bold"),
-        relief="flat",
-        width=20,
-        command=validate_login,
-    ).pack(pady=10)
+        if w < 60 or h < 60:
+            return
 
-    password_entry.bind("<Return>", lambda e: validate_login())
+        draw_vertical_gradient(left_canvas, 0, 0, w, h,
+                               GRADIENT_START, GRADIENT_END, steps=220)
+
+        left_canvas.create_text(
+            int(w*0.08), int(h*0.25),
+            anchor="w",
+            text="Welcome to Visitor Management System",
+            font=("Segoe UI",28,"bold"),
+            fill="white"
+        )
+
+        left_canvas.create_text(
+            int(w*0.08), int(h*0.34),
+            anchor="w",
+            text="Manage visitors & access control\nwith a clean modern UI.",
+            font=("Segoe UI",12),
+            fill="#FFEFFF"
+        )
+
+    left_canvas.bind("<Configure>", draw_left)
+
+    # -----------------------
+    # RIGHT LOGIN CARD
+    # -----------------------
+    right = tk.Frame(login_frame, bg=BG_COLOR)
+    right.grid(row=0, column=1, sticky="nsew")
+
+    card = tk.Frame(right, bg="white")
+    card.place(relx=0.5, rely=0.5, anchor="center", width=360, height=360)
+
+    tk.Label(card, text="USER LOGIN", bg="white",
+             fg="#777", font=("Segoe UI",9,"bold")).pack(pady=(16,6))
+    tk.Label(card, text="Welcome Back 👋", bg="white",
+             fg=TEXT_COLOR, font=("Segoe UI",18,"bold")).pack()
+    tk.Label(card, text="Sign in to continue", bg="white",
+             fg="#888", font=("Segoe UI",10)).pack(pady=(4,20))
+
+    # Username
+    f1 = tk.Frame(card, bg="white")
+    f1.pack(padx=25, fill="x")
+    tk.Label(f1, text="👤", bg="white").pack(side="left")
+    username_entry = tk.Entry(f1, bd=0, font=("Segoe UI",11))
+    username_entry.pack(side="left", fill="x", expand=True, ipady=7)
+    tk.Frame(card, height=1, bg="#E1E1E1").pack(fill="x", padx=25, pady=(4,12))
+
+    # Password
+    f2 = tk.Frame(card, bg="white")
+    f2.pack(padx=25, fill="x")
+    tk.Label(f2, text="🔒", bg="white").pack(side="left")
+    password_entry = tk.Entry(f2, show="*", bd=0, font=("Segoe UI",11))
+    password_entry.pack(side="left", fill="x", expand=True, ipady=7)
+    tk.Frame(card, height=1, bg="#E1E1E1").pack(fill="x", padx=25, pady=(4,16))
+
+    tk.Button(card, text="LOGIN", bg=PRIMARY_COLOR, fg="white",
+              font=("Segoe UI",11,"bold"),
+              command=validate_login,
+              relief="flat").pack(ipadx=12, ipady=6)
+
+    username_entry.focus()
 
 
-# 🔹 Initialize Full UI
+# -----------------------------------------
+# MAIN UI INIT
+# -----------------------------------------
 def init_ui():
     global root, content_frame, nav
+
     root.title("Visitor Management System")
-    root.geometry("1000x650")
+    root.geometry("1100x750")
     root.configure(bg=BG_COLOR)
 
-    root.grid_rowconfigure(2, weight=1)
+    root.grid_rowconfigure(0, weight=0)
+    root.grid_rowconfigure(1, weight=1)
+    root.grid_rowconfigure(2, weight=0)
     root.grid_columnconfigure(0, weight=1)
 
-    # Title
-    tk.Label(
-        root,
-        text="Visitor Management System",
-        font=("Segoe UI", 20, "bold"),
-        bg=BG_COLOR,
-        fg=TEXT_COLOR,
-    ).grid(row=0, column=0, sticky="ew", pady=(10, 5))
-
-    # Prepare navbar but hide until login
     nav = setup_navbar()
     nav.grid_remove()
 
-    # Prepare main content frame (hidden initially)
     content_frame = tk.Frame(root, bg=BG_COLOR)
 
-    # Footer
-    tk.Label(
-        root,
-        text="© 2025 Indsys Holdings - All rights reserved.",
-        font=("Segoe UI", 9),
-        bg=BG_COLOR,
-        fg="#7F8C8D",
-    ).grid(row=3, column=0, pady=5)
+    footer = tk.Label(root, text="© 2025 Indsys Holdings - All rights reserved.",
+                      font=("Segoe UI",9), bg=BG_COLOR, fg="#777")
+    footer.grid(row=2, column=0, pady=8)
+    footer.grid_remove()
 
-    # Start with login screen
     show_login_screen()
 
 
+# -----------------------------------------
+# BOOT
+# -----------------------------------------
 if __name__ == "__main__":
     root = tk.Tk()
-    setup_styles(ttk.Style(root))
     init_ui()
     root.mainloop()
