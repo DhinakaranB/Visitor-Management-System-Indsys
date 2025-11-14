@@ -2,32 +2,97 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from Api.Common_signature import common_signature_api
 
-# Colors
-BG_COLOR = "#F4F6F7"
-TEXT_COLOR = "#2C3E50"
+# ---------------- COLORS ----------------
+HEADER_BG = "#F3F4F6"
+HEADER_FG = "#4B5563"
+ROW_ODD = "#FFFFFF"
+ROW_EVEN = "#F9FAFB"
+BORDER_COLOR = "#E5E7EB"
+TEXT_DARK = "#111827"
 
+def modern_treeview_style():
+    style = ttk.Style()
+    style.theme_use("clam")
+
+    style.configure(
+        "Modern.Treeview.Heading",
+        background=HEADER_BG,
+        foreground=HEADER_FG,
+        font=("Segoe UI", 10, "bold"),
+        padding=10,
+        relief="flat"
+    )
+
+    style.configure(
+        "Modern.Treeview",
+        background="white",
+        foreground=TEXT_DARK,
+        rowheight=32,
+        fieldbackground="white",
+        bordercolor=BORDER_COLOR,
+        bordersize=1,
+        font=("Segoe UI", 10)
+    )
+
+    style.map("Modern.Treeview.Heading",
+              background=[("active", HEADER_BG)])
+
+
+# ---------------- LINKED DOOR PAGE ----------------
 def show_linked_doors(content_frame):
-    """Fetch and display linked doors using HikCentral APIs with fallback."""
-    for w in content_frame.winfo_children():
-        w.destroy()
+    for widget in content_frame.winfo_children():
+        widget.destroy()
 
-    frame = tk.Frame(content_frame, bg=BG_COLOR)
-    frame.pack(fill="both", expand=True, padx=20, pady=20)
+    content_frame.configure(bg="white")
+    modern_treeview_style()
 
-    tk.Label(frame, text="🔗 Linked Doors", font=("Segoe UI", 16, "bold"),
-             bg=BG_COLOR, fg=TEXT_COLOR).pack(pady=10)
+    # 🔵 Title
+    tk.Label(
+        content_frame,
+        text="🔗 Linked Doors",
+        font=("Segoe UI", 18, "bold"),
+        bg="white",
+        fg=TEXT_DARK,
+        anchor="w"
+    ).pack(fill="x", padx=20, pady=(10, 5))
 
-    columns = ("Door ID", "Door Name", "Linked Device", "Status", "Out State")
-    tree = ttk.Treeview(frame, columns=columns, show="headings", height=15)
-    for c in columns:
-        tree.heading(c, text=c)
-        tree.column(c, width=160, anchor="center")
-    tree.pack(fill="both", expand=True, padx=10, pady=10)
+    # -------------- TABLE FRAME --------------
+    table_frame = tk.Frame(content_frame, bg="white")
+    table_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-    scrollbar = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
-    tree.configure(yscroll=scrollbar.set)
+    columns = ("doorID", "doorName", "linkedDevice", "status", "outState")
+
+    tree = ttk.Treeview(
+        table_frame,
+        columns=columns,
+        show="headings",
+        style="Modern.Treeview",
+    )
+    tree.pack(fill="both", expand=True, side="left")
+
+    # Scrollbar
+    scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=scrollbar.set)
     scrollbar.pack(side="right", fill="y")
 
+    # Table Headings
+    headers = {
+        "doorID": "Door ID",
+        "doorName": "Door Name",
+        "linkedDevice": "Linked Device",
+        "status": "Status",
+        "outState": "Out State"
+    }
+
+    for col, text in headers.items():
+        tree.heading(col, text=text)
+        tree.column(col, anchor="center", width=180)
+
+    # Row color tag
+    tree.tag_configure("odd", background=ROW_ODD)
+    tree.tag_configure("even", background=ROW_EVEN)
+
+    # Status emojis
     status_map = {
         0: "🔴 Closed",
         1: "🟢 Open",
@@ -37,88 +102,67 @@ def show_linked_doors(content_frame):
         -1: "❔ N/A"
     }
 
-    # Candidate endpoints in order of preference
-    endpoints = [
-        "/artemis/api/resource/v1/acsDoor/advance/acsDoorList",
-        "/artemis/api/resource/v1/acsDoor/acsDoorList",
-        "/artemis/api/resource/v1/acsDoor/advance/acsDoorList"  # duplicate safe fallback
-    ]
-
-    # Clean payloads: try without regionIndexCode; some endpoints accept additional filters but not required
-    payloads = [
-        {"pageNo": 1, "pageSize": 100},
-        # Some implementations accept 'pageNo' & 'pageSize' only — keep this list for easy extension.
-    ]
-
-    def fetch_doors():
+    # ---------------- FETCH FUNCTION ----------------
+    def fetch_linked_doors():
         tree.delete(*tree.get_children())
 
+        endpoints = [
+            "/artemis/api/resource/v1/acsDoor/advance/acsDoorList",
+            "/artemis/api/resource/v1/acsDoor/acsDoorList"
+        ]
+
+        payload = {"pageNo": 1, "pageSize": 200}
+        ok_res = None
         last_error = None
-        success_res = None
-        used_endpoint = None
 
-        # Try each endpoint with each payload
+        # Try all available API endpoints
         for ep in endpoints:
-            for payload in payloads:
-                try:
-                    print(f"DEBUG: Trying endpoint {ep} with payload {payload}")
-                    res = common_signature_api.call_api(ep, payload)
-                    print("DEBUG: Response:", res)
+            try:
+                res = common_signature_api.call_api(ep, payload)
+                print("DEBUG:", ep, res)
 
-                    # If empty res, treat as failure and continue
-                    if not res:
-                        last_error = "No response from API"
-                        continue
+                if not res:
+                    continue
 
-                    # If API returned success code -> use it
-                    if str(res.get("code", "")).strip() == "0":
-                        success_res = res
-                        used_endpoint = ep
-                        break
+                if str(res.get("code")) == "0":
+                    ok_res = res
+                    break
+                else:
+                    last_error = res.get("msg")
+            except Exception as e:
+                last_error = str(e)
 
-                    # If API complained about regionIndexCode specifically, record message and continue trying other endpoints
-                    msg = str(res.get("msg", "")).lower()
-                    if "regionindexcode" in msg or "regionindex" in msg or "regionindexcode parameter" in msg:
-                        last_error = f"Server rejected request: {res.get('msg')}"
-                        # continue trying other endpoints/payloads
-                        continue
-
-                    # For any other error message, record and continue trying
-                    last_error = f"API returned error: {res.get('msg', 'Unknown')}"
-                except Exception as e:
-                    print("DEBUG: Exception calling API:", e)
-                    last_error = str(e)
-
-            if success_res:
-                break
-
-        # If we never got success, show the last error
-        if not success_res:
-            messagebox.showerror("API Error", last_error or "Failed to fetch doors")
+        if not ok_res:
+            messagebox.showerror("API Error", last_error or "Cannot fetch linked doors.")
             return
 
-        # Populate tree from successful response
-        data_list = success_res.get("data", {}).get("list", [])
-        if not data_list:
+        door_list = ok_res.get("data", {}).get("list", [])
+
+        if not door_list:
             messagebox.showinfo("Info", "No linked doors found.")
             return
 
-        for door in data_list:
-            door_id = door.get("doorIndexCode", door.get("doorIndex", "-"))
-            door_name = door.get("doorName", "-")
-            linked_device = door.get("acsDevIndexCode", door.get("acsDevIndex", "-"))
-            door_state = door.get("doorState", -1)
-            out_state = door.get("doorOutState", -1)
+        # Insert rows
+        for i, door in enumerate(door_list):
+            door_id = door.get("doorIndexCode", "-")
+            name = door.get("doorName", "-")
+            linked_device = door.get("acsDevIndexCode", "-")
+            status = status_map.get(door.get("doorState", -1), "❔ Unknown")
+            out_state = status_map.get(door.get("doorOutState", -1), "❔ Unknown")
 
-            tree.insert("", "end", values=(
-                door_id,
-                door_name,
-                linked_device,
-                status_map.get(door_state, "❔ Unknown"),
-                status_map.get(out_state, "❔ Unknown")
-            ))
+            tree.insert(
+                "",
+                "end",
+                values=(door_id, name, linked_device, status, out_state),
+                tags=("odd" if i % 2 == 0 else "even",)
+            )
 
-    ttk.Button(frame, text="🔄 Refresh", command=fetch_doors).pack(pady=8)
+    # Refresh Button
+    ttk.Button(
+        content_frame,
+        text="🔄 Refresh",
+        command=fetch_linked_doors
+    ).pack(pady=10)
 
-    # initial load
-    fetch_doors()
+    # Load initially
+    fetch_linked_doors()

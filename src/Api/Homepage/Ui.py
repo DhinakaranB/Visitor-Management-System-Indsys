@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os, sys
-
+from PIL import Image, ImageTk
 # -----------------------------------------
 # SAFE IMPORT HANDLING
 # -----------------------------------------
@@ -79,29 +79,32 @@ def clear_content():
 def close_application():
     root.destroy()
 
+    # def show_home():
+    #     clear_content()
+    #     content_frame.grid_rowconfigure(0, weight=1)
+    #     content_frame.grid_columnconfigure(0, weight=1)
+
+    #     box = tk.Frame(content_frame, bg=BG_COLOR)
+    #     box.grid(row=0, column=0, sticky="nsew")
+
+    #     tk.Label(
+    #         box,
+    #         text="Welcome to Visitor Management System 👋",
+    #         font=("Segoe UI", 22, "bold"),
+    #         bg=BG_COLOR,
+    #         fg=PRIMARY_COLOR
+    #     ).pack(pady=(50,10))
+
+    #     tk.Label(
+    #         box,
+    #         text="Use the navigation bar above to manage visitor appointments and access control.",
+    #         font=("Segoe UI", 12),
+    #         bg=BG_COLOR,
+    #         fg=TEXT_COLOR
+    #     ).pack(pady=10)
+
 def show_home():
-    clear_content()
-    content_frame.grid_rowconfigure(0, weight=1)
-    content_frame.grid_columnconfigure(0, weight=1)
-
-    box = tk.Frame(content_frame, bg=BG_COLOR)
-    box.grid(row=0, column=0, sticky="nsew")
-
-    tk.Label(
-        box,
-        text="Welcome to Visitor Management System 👋",
-        font=("Segoe UI", 22, "bold"),
-        bg=BG_COLOR,
-        fg=PRIMARY_COLOR
-    ).pack(pady=(50,10))
-
-    tk.Label(
-        box,
-        text="Use the navigation bar above to manage visitor appointments and access control.",
-        font=("Segoe UI", 12),
-        bg=BG_COLOR,
-        fg=TEXT_COLOR
-    ).pack(pady=10)
+    load_home_screen(content_frame)    
 
 def show_add_visitor():
     clear_content()
