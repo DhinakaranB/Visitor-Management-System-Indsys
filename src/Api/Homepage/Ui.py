@@ -13,6 +13,7 @@ try:
     from src.Api.Common_signature import common_signature_api
     from src.Api.Door_screen import door_list_Info as door_list
     from src.Api.Door_screen import linked_door_info as linked_doors
+    from src.Api.Homepage.home_screen import load_home_screen
 except:
     class MockAPI:
         def show_create_form(*a): print("Mock: show_create_form")
