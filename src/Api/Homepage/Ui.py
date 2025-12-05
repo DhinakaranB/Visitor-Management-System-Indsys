@@ -14,7 +14,9 @@ try:
     from src.Api.Door_screen import door_list_Info as door_list
     from src.Api.Door_screen import linked_door_info as linked_doors
     from src.Api.Homepage.home_screen import load_home_screen
-except:
+except Exception as e:
+    print("IMPORT ERROR:", e)
+
     class MockAPI:
         def show_create_form(*a): print("Mock: show_create_form")
         def show_single_visitor_list(*a): print("Mock: show_single_visitor_list")
@@ -25,6 +27,11 @@ except:
     visitor_list = MockAPI()
     door_list = MockAPI()
     linked_doors = MockAPI()
+
+    # IMPORTANT FALLBACK (missing earlier)
+    def load_home_screen(*args, **kwargs):
+        print("Mock: load_home_screen (Home screen import failed!)")
+
 
 
 # -----------------------------------------
@@ -79,30 +86,6 @@ def clear_content():
 
 def close_application():
     root.destroy()
-
-    # def show_home():
-    #     clear_content()
-    #     content_frame.grid_rowconfigure(0, weight=1)
-    #     content_frame.grid_columnconfigure(0, weight=1)
-
-    #     box = tk.Frame(content_frame, bg=BG_COLOR)
-    #     box.grid(row=0, column=0, sticky="nsew")
-
-    #     tk.Label(
-    #         box,
-    #         text="Welcome to Visitor Management System 👋",
-    #         font=("Segoe UI", 22, "bold"),
-    #         bg=BG_COLOR,
-    #         fg=PRIMARY_COLOR
-    #     ).pack(pady=(50,10))
-
-    #     tk.Label(
-    #         box,
-    #         text="Use the navigation bar above to manage visitor appointments and access control.",
-    #         font=("Segoe UI", 12),
-    #         bg=BG_COLOR,
-    #         fg=TEXT_COLOR
-    #     ).pack(pady=10)
 
 def show_home():
     load_home_screen(content_frame)    

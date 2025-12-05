@@ -1,6 +1,8 @@
 import os
 import tkinter as tk
 from PIL import Image, ImageTk
+# import requests
+
 
 BG_COLOR = "#D6EAF8"
 TEXT_COLOR = "#2C3E50"
