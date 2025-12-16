@@ -14,6 +14,9 @@ try:
     from src.Api.Door_screen import door_list_Info as door_list
     from src.Api.Door_screen import linked_door_info as linked_doors
     from src.Api.Homepage.home_screen import load_home_screen
+    from src.Api.visitor_screen.visitor_edit import show_visitor_edit
+    from src.Api.visitor_screen.visitor_delete import show_visitor_delete
+
 except Exception as e:
     print("IMPORT ERROR:", e)
 
@@ -106,6 +109,25 @@ def show_linked_doors():
     clear_content()
     linked_doors.show_linked_doors(content_frame)
 
+def show_create_appointment():
+    clear_content()
+    # TODO: replace with actual appointment create screen
+    messagebox.showinfo("Create Appointment",
+                        "Create Appointment screen will be implemented here.")
+
+def show_edit_appointment():
+    clear_content()
+    # TODO: replace with actual appointment edit screen
+    messagebox.showinfo("Edit Appointment",
+                        "Edit Appointment screen will be implemented here.")
+
+def show_delete_appointment():
+    clear_content()
+    # TODO: replace with actual appointment delete screen
+    messagebox.showinfo("Delete Appointment",
+                        "Delete Appointment screen will be implemented here.")
+
+
 
 # -----------------------------------------
 # DROPDOWN
@@ -159,8 +181,11 @@ def setup_navbar():
         return lbl
 
     menu("Home", show_home)
-    menu("Add Visitor", show_add_visitor)
-    menu("Visitor List", show_single_visitor_list_external)
+    # menu("Add Visitor", show_add_visitor)
+    v = menu("Visitor ▼")
+    v.bind("<Button-1>", lambda e: open_visitor_dropdown(v))
+
+    # menu("Visitor List", show_single_visitor_list_external)
 
     d = menu("Door ▼")
     d.bind("<Button-1>", lambda e: open_door_dropdown(d))
@@ -286,6 +311,60 @@ def show_login_screen():
               relief="flat").pack(ipadx=12, ipady=6)
 
     username_entry.focus()
+
+
+# -----------------------------------------
+# VISITOR DROPDOWN (TEXT ONLY)
+# -----------------------------------------
+# -----------------------------------------
+# VISITOR DROPDOWN (TEXT ONLY)
+# -----------------------------------------
+def open_visitor_dropdown(widget):
+    menu = tk.Toplevel(root)
+    menu.overrideredirect(True)
+    menu.config(bg="white")
+
+    # Position under menu label
+    x = widget.winfo_rootx()
+    y = widget.winfo_rooty() + widget.winfo_height()
+    menu.geometry(f"200x200+{x}+{y}")
+
+    def item(txt, cmd):
+        lbl = tk.Label(
+            menu,
+            text=txt,
+            bg="white",
+            fg="#1F2D3D",
+            font=("Segoe UI", 10),
+            padx=14,          # better padding
+            pady=7,
+            anchor="w"
+        )
+        lbl.pack(fill="x")
+        lbl.bind("<Enter>", lambda e: lbl.config(bg="#EEF3FF"))
+        lbl.bind("<Leave>", lambda e: lbl.config(bg="white"))
+        lbl.bind("<Button-1>", lambda e: (menu.destroy(), cmd()))
+        return lbl
+
+    # ---- Visitor Section ----
+    item("Add Visitor", show_add_visitor)
+    item("Visitor List", show_single_visitor_list_external)
+    item("Edit Visitor", lambda: show_visitor_edit(content_frame))
+
+    # ---- Separator (Clean) ----
+    separator = tk.Frame(menu, bg="#E5E7EB", height=1)
+    separator.pack(fill="x", pady=4, padx=8)   # add left-right inner padding
+
+    # ---- Appointment Section ----
+    item("Create Appointment", show_create_appointment)
+    item("Edit Appointment", show_edit_appointment)
+    item("Delete Appointment", show_delete_appointment)
+
+    menu.bind("<FocusOut>", lambda e: menu.destroy())
+    menu.focus_force()
+
+
+
 
 
 # -----------------------------------------

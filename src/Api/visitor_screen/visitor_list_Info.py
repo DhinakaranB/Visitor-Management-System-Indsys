@@ -1,5 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import requests
+import json
+import urllib3
+urllib3.disable_warnings()
 
 from Api.Common_signature.common_signature_api import get_visitor_list
 
@@ -19,6 +23,62 @@ current_page = 1
 table = None
 pagination_frame = None
 
+
+
+# ----------------------------------------------------
+# EDIT SELECTED VISITOR
+# ----------------------------------------------------
+def edit_selected_visitor():
+    selected = table.focus()
+    if not selected:
+        messagebox.showerror("Error", "Please select a visitor to edit.")
+        return
+
+    row = table.item(selected)["values"]
+    visitor_id = row[0]
+
+    from Api.visitor_screen.visitor_registerment import show_create_form
+
+    # Load registration screen with data
+    show_create_form(
+        table.master.master,   # Pass root content frame
+        go_back=None,
+        close_app=None,
+        visitor_id=visitor_id
+    )
+
+
+# ----------------------------------------------------
+# DELETE SELECTED VISITOR
+# ----------------------------------------------------
+def delete_selected_visitor():
+    selected = table.focus()
+    if not selected:
+        messagebox.showerror("Error", "Please select a visitor to delete.")
+        return
+
+    row = table.item(selected)["values"]
+    visitor_id = row[0]
+
+    confirm = messagebox.askyesno(
+        "Confirm Delete",
+        f"Are you sure you want to delete visitor {visitor_id}?"
+    )
+
+    if not confirm:
+        return
+
+    try:
+        # 🔥 CALL YOUR DELETE API HERE
+        # Example:
+        # delete_visitor_api(visitor_id)
+
+        messagebox.showinfo("Success", f"Visitor {visitor_id} deleted successfully!")
+
+        # Reload list
+        apply_search("")   # or show_single_visitor_list(root)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to delete visitor:\n{e}")
 
 # ----------------------------------------------------
 # Modern Table Style
@@ -47,6 +107,22 @@ def modern_treeview_style():
         font=("Segoe UI", 10)
     )
 
+def delete_visitor_api(visitor_id):
+    url = "https://127.0.0.1/artemis/api/visitor/v1/appointment/single/delete"
+
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json;charset=UTF-8"
+    }
+
+    body = {
+        "appointRecordId": str(visitor_id)
+    }
+
+    response = requests.post(url, headers=headers, json=body, verify=False)
+
+    return response.json()
+
 
 # ----------------------------------------------------
 # Main Screen
@@ -68,7 +144,7 @@ def show_single_visitor_list(root):
         anchor="w"
     ).pack(fill="x", padx=20, pady=(10, 5))
 
-    # ---------------- SEARCH BAR ----------------
+     # ---------------- SEARCH BAR ----------------
     search_frame = tk.Frame(root, bg="white")
     search_frame.pack(fill="x", padx=20, pady=(0, 10))
 
@@ -92,7 +168,7 @@ def show_single_visitor_list(root):
     yscroll = ttk.Scrollbar(table_frame, orient="vertical")
     xscroll = ttk.Scrollbar(table_frame, orient="horizontal")
 
-    cols = ("visitorId", "visitorFullName", "companyName", "phoneNo", "gender", "remark")
+    cols = ("visitorId", "visitorFullName", "companyName", "phoneNo", "gender", "remark", "actions")
 
     global table
     table = ttk.Treeview(
@@ -109,6 +185,7 @@ def show_single_visitor_list(root):
     yscroll.pack(side="right", fill="y")
     xscroll.pack(side="bottom", fill="x")
     table.pack(fill="both", expand=True)
+    table.bind("<Button-1>", on_actions_click)
 
     # Headers
     headers = [
@@ -118,11 +195,13 @@ def show_single_visitor_list(root):
         ("phoneNo", "Phone No"),
         ("gender", "Gender"),
         ("remark", "Remark"),
+        ("actions", "Actions")
     ]
 
     for c, t in headers:
-        table.heading(c, text=t)
-        table.column(c, anchor="w", width=180)
+        table.heading(c, text=t, anchor="center")     # Center column headers
+        table.column(c, anchor="center", width=180)   # Center column data
+
 
     table.tag_configure("odd", background=ROW_ODD)
     table.tag_configure("even", background=ROW_EVEN)
@@ -142,7 +221,6 @@ def show_single_visitor_list(root):
     pagination_frame.pack(pady=15)
 
     render_pagination()
-
 
 # ----------------------------------------------------
 # Fill Table Rows
@@ -166,10 +244,62 @@ def fill_table():
                 v.get("companyName"),
                 v.get("phoneNo"),
                 gender,
-                v.get("remark")
+                v.get("remark"),
+                "Edit | Delete"
             ),
-            tags=("odd" if i % 2 == 0 else "even",)
+            tags=("odd" if i % 2 == 0 else "even",),
         )
+
+def on_actions_click(event):
+    region = table.identify("region", event.x, event.y)
+    if region != "cell":
+        return
+
+    row_id = table.identify_row(event.y)
+    col = table.identify_column(event.x)
+
+    # ACTIONS column is last one → #7
+    if col != "#7":
+        return
+
+    values = table.item(row_id)["values"]
+    visitor_id = values[0]
+
+    x_cell, y_cell, w, h = table.bbox(row_id, col)
+    click_x = event.x - x_cell
+
+    if click_x < w // 2:
+        edit_selected_visitor_from_actions(visitor_id)
+    else:
+        delete_selected_visitor_from_actions(visitor_id)
+
+
+def edit_selected_visitor_from_actions(visitor_id):
+    from Api.visitor_screen.visitor_registerment import show_create_form
+    show_create_form(table.master.master, None, None, visitor_id=visitor_id)
+
+
+def delete_selected_visitor_from_actions(visitor_id):
+    confirm = messagebox.askyesno(
+        "Confirm Delete",
+        f"Are you sure you want to delete visitor {visitor_id}?"
+    )
+
+    if not confirm:
+        return
+
+    try:
+        result = delete_visitor_api(visitor_id)
+
+        if result.get("code") == "0":
+            messagebox.showinfo("Success", "Visitor deleted successfully!")
+        else:
+            messagebox.showerror("Error", f"Delete failed:\n{result}")
+
+        apply_search("")   # Reload table
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Delete API failed:\n{e}")
 
 
 # ----------------------------------------------------

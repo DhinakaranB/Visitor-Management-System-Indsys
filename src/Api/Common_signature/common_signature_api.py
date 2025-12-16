@@ -146,33 +146,7 @@ def get_visitor_list():
     except Exception as e:
         messagebox.showerror("Unhandled Error", f"Visitor list fetch failed:\n{e}")
         return []
-
-
-# def validate_hikvision_connection():
-#     """
-#     Quick test to confirm Hikvision OpenAPI connectivity.
-#     """
-#     api_path = "/artemis/api/common/v1/version"
-#     import json, requests
-#     body = json.dumps({})
-#     headers = create_signature("POST", body, api_path)
-#     url = f"{BASE_URL}{api_path}"
-
-#     try:
-#         res = requests.post(url, headers=headers, data=body, verify=False, timeout=10)
-#         if res.status_code == 200:
-#             data = res.json()
-#             if str(data.get("code")) == "0":
-#                 return True, data.get("data", {}).get("version", "Unknown")
-#             else:
-#                 return False, data.get("msg", "Error from Hikvision")
-#         else:
-#             return False, f"HTTP {res.status_code}: {res.text}"
-#     except Exception as e:
-#         return False, str(e)
-
-
-
+    
 # ------------------------------------------------------------
 # UNIVERSAL CALL FUNCTION (used by visitor_list_single)
 # ------------------------------------------------------------

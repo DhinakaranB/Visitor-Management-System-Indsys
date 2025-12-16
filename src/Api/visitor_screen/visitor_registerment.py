@@ -103,7 +103,7 @@ def handle_send(root_instance):
 
 
 # ------------------------------------------------------
-def show_create_form(root_instance, show_main_screen_callback, close_app_callback):
+def show_create_form(root_instance, show_main_screen_callback, close_app_callback, visitor_id=None):
     global gender_var, entries, purpose_var
     root_instance.config(bg=BG_COLOR)
 
