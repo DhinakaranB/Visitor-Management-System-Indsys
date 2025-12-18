@@ -1,8 +1,6 @@
 import os
 import tkinter as tk
 from PIL import Image, ImageTk
-# import requests
-
 
 BG_COLOR = "#D6EAF8"
 TEXT_COLOR = "#2C3E50"
@@ -38,43 +36,43 @@ def load_home_screen(content_frame):
 
             if os.path.exists(img_path):
                 pil_img = Image.open(img_path)
-                pil_img = pil_img.resize((w, int(h * 0.45)), Image.LANCZOS)
+                
+                # ---------------------------------------------------------
+                # FIX: Resize to full width (w) AND full height (h)
+                # ---------------------------------------------------------
+                pil_img = pil_img.resize((w, h), Image.LANCZOS)
                 tk_img = ImageTk.PhotoImage(pil_img)
 
                 canvas._store["pil"] = pil_img
                 canvas._store["tk"] = tk_img
 
-                # Draw image top
+                # Draw image starting at top-left
                 canvas.create_image(0, 0, anchor="nw", image=tk_img)
 
-                img_h = pil_img.height
-
-                # White bottom area
-                canvas.create_rectangle(0, img_h, w, h, fill="white", outline="")
-
-                # Heading text
+                # ---------------------------------------------------------
+                # TEXT POSITIONING (Centered on full screen)
+                # ---------------------------------------------------------
                 canvas.create_text(
                     w // 2,
-                    img_h * 0.52,
-                    text="Welcome to Visitor Management System 👋",
+                    h * 0.45,  # Slightly above center
+                    text="Welcome to Visitor Management System",
                     font=("Segoe UI", 28, "bold"),
                     fill=PRIMARY_COLOR
                 )
 
-                # Subtitle
                 canvas.create_text(
                     w // 2,
-                    img_h * 0.72,
+                    h * 0.55,  # Slightly below center
                     text="Use the navigation bar above to manage visitor appointments and access control.",
                     font=("Segoe UI", 12),
                     fill=TEXT_COLOR
                 )
 
             else:
-                # Fallback
+                # Fallback if image is missing
                 canvas.create_text(
                     w // 2, h // 3,
-                    text="Welcome to Visitor Management System 👋",
+                    text="Welcome to Visitor Management System",
                     font=("Segoe UI", 28, "bold"),
                     fill=PRIMARY_COLOR
                 )
@@ -83,4 +81,5 @@ def load_home_screen(content_frame):
             print("Home bg error:", e)
 
     canvas.bind("<Configure>", redraw)
+    # Trigger redraw immediately to load image
     canvas.after(50, redraw)

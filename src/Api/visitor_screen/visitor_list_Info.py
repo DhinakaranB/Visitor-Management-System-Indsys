@@ -1,404 +1,302 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkcalendar import DateEntry
+from datetime import date
 import requests
-import json
 import urllib3
 urllib3.disable_warnings()
 
 from Api.Common_signature.common_signature_api import get_visitor_list
+from Api.visitor_screen.visitor_registerment import show_create_form
+# Add this with your other imports
+from Api.visitor_screen.visitor_delete import delete_appointment_logic
 
-# ---------------- COLORS ----------------
-HEADER_BG = "#F3F4F6"
-HEADER_FG = "#4B5563"
-ROW_ODD = "#FFFFFF"
-ROW_EVEN = "#F9FAFB"
-BORDER_COLOR = "#E5E7EB"
-TEXT_DARK = "#111827"
-
-PAGE_SIZE = 16
-
-visitors_cache = []
-filtered_cache = []
+# ================= CONFIG =================
+PAGE_SIZE = 15
 current_page = 1
+appointments_cache = []
+filtered_cache = []
+
 table = None
 pagination_frame = None
+from_picker = None
+to_picker = None
+search_var = None
 
 
-
-# ----------------------------------------------------
-# EDIT SELECTED VISITOR
-# ----------------------------------------------------
-def edit_selected_visitor():
-    selected = table.focus()
-    if not selected:
-        messagebox.showerror("Error", "Please select a visitor to edit.")
-        return
-
-    row = table.item(selected)["values"]
-    visitor_id = row[0]
-
-    from Api.visitor_screen.visitor_registerment import show_create_form
-
-    # Load registration screen with data
-    show_create_form(
-        table.master.master,   # Pass root content frame
-        go_back=None,
-        close_app=None,
-        visitor_id=visitor_id
-    )
-
-
-# ----------------------------------------------------
-# DELETE SELECTED VISITOR
-# ----------------------------------------------------
-def delete_selected_visitor():
-    selected = table.focus()
-    if not selected:
-        messagebox.showerror("Error", "Please select a visitor to delete.")
-        return
-
-    row = table.item(selected)["values"]
-    visitor_id = row[0]
-
-    confirm = messagebox.askyesno(
-        "Confirm Delete",
-        f"Are you sure you want to delete visitor {visitor_id}?"
-    )
-
-    if not confirm:
-        return
-
-    try:
-        # 🔥 CALL YOUR DELETE API HERE
-        # Example:
-        # delete_visitor_api(visitor_id)
-
-        messagebox.showinfo("Success", f"Visitor {visitor_id} deleted successfully!")
-
-        # Reload list
-        apply_search("")   # or show_single_visitor_list(root)
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to delete visitor:\n{e}")
-
-# ----------------------------------------------------
-# Modern Table Style
-# ----------------------------------------------------
-def modern_treeview_style():
+# ================= TABLE STYLE =================
+def apply_table_style():
     style = ttk.Style()
     style.theme_use("clam")
 
     style.configure(
-        "Modern.Treeview.Heading",
-        background=HEADER_BG,
-        foreground=HEADER_FG,
-        font=("Segoe UI", 10, "bold"),
-        padding=10,
-        relief="flat"
-    )
-
-    style.configure(
-        "Modern.Treeview",
-        background="white",
-        foreground=TEXT_DARK,
-        rowheight=32,
-        fieldbackground="white",
-        bordercolor=BORDER_COLOR,
-        bordersize=1,
+        "Custom.Treeview",
+        background="#FFFFFF",
+        foreground="#111827",
+        rowheight=34,
+        fieldbackground="#FFFFFF",
+        bordercolor="#CBD5E1",
+        borderwidth=1,
         font=("Segoe UI", 10)
     )
 
-def delete_visitor_api(visitor_id):
+    style.configure(
+        "Custom.Treeview.Heading",
+        background="#E5E7EB",
+        foreground="#111827",
+        font=("Segoe UI", 10, "bold"),
+        relief="solid",
+        borderwidth=1
+    )
+
+    style.map(
+        "Custom.Treeview",
+        background=[("selected", "#2563EB")],
+        foreground=[("selected", "#FFFFFF")]
+    )
+
+
+# ================= DELETE API =================
+def delete_appointment_api(appoint_id):
     url = "https://127.0.0.1/artemis/api/visitor/v1/appointment/single/delete"
-
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json;charset=UTF-8"
-    }
-
-    body = {
-        "appointRecordId": str(visitor_id)
-    }
-
-    response = requests.post(url, headers=headers, json=body, verify=False)
-
-    return response.json()
+    body = {"appointRecordId": str(appoint_id)}
+    return requests.post(url, json=body, verify=False).json()
 
 
-# ----------------------------------------------------
-# Main Screen
-# ----------------------------------------------------
+# ================= MAIN SCREEN =================
 def show_single_visitor_list(root):
-    global table, pagination_frame, visitors_cache, filtered_cache, current_page
+    global content_frame
+    content_frame = root  
+    global table, pagination_frame, from_picker, to_picker, search_var
 
     for w in root.winfo_children():
         w.destroy()
 
-    root.configure(bg="white")
-    modern_treeview_style()
+    apply_table_style()
 
-    # Title
+    # -------- TITLE --------
     tk.Label(
-        root, text="Visitor List",
+        root,
+        text="Appointment List",
         font=("Segoe UI", 18, "bold"),
-        bg="white", fg=TEXT_DARK,
+        bg="#DBEAFE",
         anchor="w"
-    ).pack(fill="x", padx=20, pady=(10, 5))
+    ).pack(fill="x", padx=20, pady=10)
 
-     # ---------------- SEARCH BAR ----------------
-    search_frame = tk.Frame(root, bg="white")
-    search_frame.pack(fill="x", padx=20, pady=(0, 10))
+    # -------- SEARCH BAR --------
+    top = tk.Frame(root, bg="#DBEAFE")
+    top.pack(fill="x", padx=20, pady=5)
 
     search_var = tk.StringVar()
+    ttk.Entry(top, textvariable=search_var, width=25).pack(side="left", padx=5)
 
-    search_entry = ttk.Entry(search_frame, textvariable=search_var, width=40)
-    search_entry.pack(side="left", padx=(0, 10), ipady=5)
+    ttk.Label(top, text="From").pack(side="left")
+    from_picker = DateEntry(top, width=12, date_pattern="yyyy-mm-dd", maxdate=date.today())
+    from_picker.pack(side="left", padx=5)
 
-    ttk.Button(search_frame, text="Search",
-               command=lambda: apply_search(search_var.get())
-               ).pack(side="left")
+    ttk.Label(top, text="To").pack(side="left")
+    to_picker = DateEntry(top, width=12, date_pattern="yyyy-mm-dd", maxdate=date.today())
+    to_picker.pack(side="left", padx=5)
 
-    ttk.Button(search_frame, text="Clear",
-               command=lambda: clear_search(search_var)
-               ).pack(side="left", padx=5)
+    ttk.Button(top, text="Search", command=lambda: load_data(1)).pack(side="left", padx=5)
+    ttk.Button(top, text="Clear", command=clear_search).pack(side="left")
 
-    # ---------------- TABLE ----------------
-    table_frame = tk.Frame(root, bg="white")
-    table_frame.pack(fill="both", expand=True, padx=20, pady=10)
+    # -------- TABLE --------
+    frame = tk.Frame(root)
+    frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-    yscroll = ttk.Scrollbar(table_frame, orient="vertical")
-    xscroll = ttk.Scrollbar(table_frame, orient="horizontal")
-
-    cols = ("visitorId", "visitorFullName", "companyName", "phoneNo", "gender", "remark", "actions")
-
-    global table
-    table = ttk.Treeview(
-        table_frame,
-        style="Modern.Treeview",
-        columns=cols,
-        show="headings",
-        yscrollcommand=yscroll.set,
-        xscrollcommand=xscroll.set
+    cols = (
+        "appointID",
+        "visitorId",
+        "visitorName",
+        "visitReason",
+        "receptionist",
+        "startTime",
+        "endTime",
+        "approval",
+        "actions"
     )
 
-    yscroll.config(command=table.yview)
-    xscroll.config(command=table.xview)
-    yscroll.pack(side="right", fill="y")
-    xscroll.pack(side="bottom", fill="x")
+    table = ttk.Treeview(frame, columns=cols, show="headings", style="Custom.Treeview")
     table.pack(fill="both", expand=True)
-    table.bind("<Button-1>", on_actions_click)
 
-    # Headers
     headers = [
+        ("appointID", "Appointment ID"),
         ("visitorId", "Visitor ID"),
-        ("visitorFullName", "Name"),
-        ("companyName", "Company"),
-        ("phoneNo", "Phone No"),
-        ("gender", "Gender"),
-        ("remark", "Remark"),
+        ("visitorName", "Visitor Name"),
+        ("visitReason", "Visit Reason"),
+        ("receptionist", "Receptionist"),
+        ("startTime", "Start Time"),
+        ("endTime", "End Time"),
+        ("approval", "Approval Code"),
         ("actions", "Actions")
     ]
 
     for c, t in headers:
-        table.heading(c, text=t, anchor="center")     # Center column headers
-        table.column(c, anchor="center", width=180)   # Center column data
+        table.heading(c, text=t)
+        table.column(c, anchor="center")
+
+    table.column("appointID", width=190)
+    table.column("visitorId", width=90)
+    table.column("visitorName", width=180, anchor="w")
+    table.column("visitReason", width=120)
+    table.column("receptionist", width=140)
+    table.column("startTime", width=190)
+    table.column("endTime", width=190)
+    table.column("approval", width=130)
+    table.column("actions", width=120)
+
+    table.tag_configure("odd", background="#FFFFFF")
+    table.tag_configure("even", background="#F8FAFC")
+
+    table.bind("<Button-1>", on_action_click)
+
+    # -------- PAGINATION --------
+    pagination_frame = tk.Frame(root)
+    pagination_frame.pack(pady=10)
+
+    load_data(1)
 
 
-    table.tag_configure("odd", background=ROW_ODD)
-    table.tag_configure("even", background=ROW_EVEN)
+# ================= LOAD DATA =================
+def load_data(page):
+    global current_page, appointments_cache
 
-    # Load data
-    try:
-        visitors_cache = get_visitor_list()
-        filtered_cache = visitors_cache.copy()
-        current_page = 1
-        fill_table()
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to load visitor list:\n{e}")
+    current_page = page
 
-    # ---------------- PAGINATION ----------------
-    global pagination_frame
-    pagination_frame = tk.Frame(root, bg="white")
-    pagination_frame.pack(pady=15)
+    start = from_picker.get_date().strftime("%Y-%m-%dT00:00:00+05:30")
+    end = to_picker.get_date().strftime("%Y-%m-%dT23:59:59+05:30")
 
-    render_pagination()
+    appointments_cache = get_visitor_list(
+        page_no=current_page,
+        page_size=PAGE_SIZE,
+        appoint_start=start,
+        appoint_end=end
+    )
 
-# ----------------------------------------------------
-# Fill Table Rows
-# ----------------------------------------------------
+    apply_search(search_var.get())
+
+
+# ================= FILL TABLE =================
 def fill_table():
     table.delete(*table.get_children())
 
-    start = (current_page - 1) * PAGE_SIZE
-    end = start + PAGE_SIZE
+    for i, v in enumerate(filtered_cache):
+        visitor = v.get("visitorInfo") or {}
 
-    rows = filtered_cache[start:end]
+        tag = "odd" if i % 2 == 0 else "even"
 
-    for i, v in enumerate(rows):
-        gender = "Male" if v.get("gender") == 1 else "Female"
         table.insert(
             "",
             "end",
             values=(
-                v.get("visitorId"),
-                v.get("visitorFullName"),
-                v.get("companyName"),
-                v.get("phoneNo"),
-                gender,
-                v.get("remark"),
+                v.get("appointID"),
+                visitor.get("visitorId", "-"),
+                visitor.get("visitorName", "-"),
+                v.get("visitorReasonName"),
+                v.get("receptionistName"),
+                v.get("appointStartTime"),
+                v.get("appointEndTime"),
+                v.get("approvalFlowCode"),
                 "Edit | Delete"
             ),
-            tags=("odd" if i % 2 == 0 else "even",),
+            tags=(tag,)
         )
 
-def on_actions_click(event):
-    region = table.identify("region", event.x, event.y)
-    if region != "cell":
-        return
 
-    row_id = table.identify_row(event.y)
-    col = table.identify_column(event.x)
-
-    # ACTIONS column is last one → #7
-    if col != "#7":
-        return
-
-    values = table.item(row_id)["values"]
-    visitor_id = values[0]
-
-    x_cell, y_cell, w, h = table.bbox(row_id, col)
-    click_x = event.x - x_cell
-
-    if click_x < w // 2:
-        edit_selected_visitor_from_actions(visitor_id)
-    else:
-        delete_selected_visitor_from_actions(visitor_id)
-
-
-def edit_selected_visitor_from_actions(visitor_id):
-    from Api.visitor_screen.visitor_registerment import show_create_form
-    show_create_form(table.master.master, None, None, visitor_id=visitor_id)
-
-
-def delete_selected_visitor_from_actions(visitor_id):
-    confirm = messagebox.askyesno(
-        "Confirm Delete",
-        f"Are you sure you want to delete visitor {visitor_id}?"
-    )
-
-    if not confirm:
-        return
-
-    try:
-        result = delete_visitor_api(visitor_id)
-
-        if result.get("code") == "0":
-            messagebox.showinfo("Success", "Visitor deleted successfully!")
-        else:
-            messagebox.showerror("Error", f"Delete failed:\n{result}")
-
-        apply_search("")   # Reload table
-
-    except Exception as e:
-        messagebox.showerror("Error", f"Delete API failed:\n{e}")
-
-
-# ----------------------------------------------------
-# Search
-# ----------------------------------------------------
+# ================= SEARCH =================
 def apply_search(text):
-    global filtered_cache, current_page
+    global filtered_cache
     text = text.lower().strip()
 
     if not text:
-        filtered_cache = visitors_cache.copy()
+        filtered_cache = appointments_cache
     else:
-        filtered_cache = [
-            v for v in visitors_cache
-            if text in str(v).lower()
-        ]
+        filtered_cache = [v for v in appointments_cache if text in str(v).lower()]
 
-    current_page = 1
     fill_table()
     render_pagination()
 
 
-def clear_search(var):
-    var.set("")
-    apply_search("")
+def clear_search():
+    search_var.set("")
+    from_picker.set_date(date.today())
+    to_picker.set_date(date.today())
+    load_data(1)
 
 
-# ----------------------------------------------------
-# Pagination Buttons
-# ----------------------------------------------------
+# ================= ACTION CLICK =================
+def on_action_click(event):
+    row = table.identify_row(event.y)
+    col = table.identify_column(event.x)
+
+    # ACTIONS column is #9
+    if not row or col != "#9":
+        return
+
+    appoint_id = table.item(row)["values"][0]
+
+    # Calculate click position
+    x, y, w, h = table.bbox(row, col)
+    click_x = event.x - x
+
+    # Left half = Edit, Right half = Delete
+    if click_x < w // 2:
+        open_registration_for_edit(appoint_id)
+    else:
+        # --- CONFIRM DELETE ---
+        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete ID {appoint_id}?"):
+
+            # CALL THE LOGIC FROM visitor_delete.py
+            success = delete_appointment_logic(appoint_id)
+
+            if success:
+                messagebox.showinfo("Deleted", "Appointment removed.")
+                load_data(current_page) # Refresh table
+            else:
+                messagebox.showerror("Error", "Could not delete appointment.")
+
+def open_registration_for_edit(appoint_id):
+    # 1. Find the specific record from local cache
+    record_to_edit = None
+    for record in appointments_cache:
+        if str(record.get("appointID")) == str(appoint_id):
+            record_to_edit = record
+            break
+            
+    if not record_to_edit:
+        messagebox.showerror("Error", "Could not find local record details.")
+        return
+
+    # 2. Import the new visitor_edit module
+    from Api.visitor_screen.visitor_edit import show_visitor_edit
+
+    # 3. Open the EDIT screen
+    show_visitor_edit(
+        root_instance=content_frame,
+        show_main_screen_callback=lambda: show_single_visitor_list(content_frame),
+        existing_data=record_to_edit
+    )
+
 def render_pagination():
     for w in pagination_frame.winfo_children():
         w.destroy()
 
-    total_pages = max(1, (len(filtered_cache) + PAGE_SIZE - 1) // PAGE_SIZE)
+    ttk.Button(
+        pagination_frame,
+        text="◀",
+        state="normal" if current_page > 1 else "disabled",
+        command=lambda: load_data(current_page - 1)
+    ).pack(side="left", padx=5)
 
-    # ---------- BUTTON STYLE ----------
-    def page_btn(txt, active=False, cmd=None):
-        bg = "#FFFFFF" if not active else TEXT_DARK
-        fg = TEXT_DARK if not active else "white"
-        font = ("Segoe UI", 10, "bold" if active else "normal")
+    ttk.Label(
+        pagination_frame,
+        text=f"Page {current_page}",
+        font=("Segoe UI", 10, "bold")
+    ).pack(side="left", padx=10)
 
-        btn = tk.Button(
-            pagination_frame, text=txt, command=cmd,
-            bg=bg, fg=fg, font=font,
-            relief="solid", borderwidth=1,
-            width=3, height=1,
-            cursor="hand2", highlightthickness=0
-        )
-        btn.pack(side="left", padx=4)
-        return btn
-
-    # ---------- PREVIOUS ----------
-    page_btn("◀", False,
-             lambda: change_page(-1) if current_page > 1 else None)
-
-    # ---------- PAGE NUMBERS ----------
-    display = []
-
-    if total_pages <= 7:
-        display = list(range(1, total_pages + 1))
-
-    else:
-        display.append(1)
-
-        if current_page > 3:
-            display.append("...")
-
-        start = max(2, current_page - 1)
-        end = min(total_pages - 1, current_page + 1)
-        display.extend(range(start, end + 1))
-
-        if current_page < total_pages - 2:
-            display.append("...")
-
-        display.append(total_pages)
-
-    for p in display:
-        if p == "...":
-            tk.Label(pagination_frame, text="...", bg="white",
-                     font=("Segoe UI", 10)).pack(side="left", padx=3)
-        else:
-            page_btn(str(p), p == current_page,
-                     lambda pp=p: goto_page(pp))
-
-    # ---------- NEXT ----------
-    page_btn("▶", False,
-             lambda: change_page(1) if current_page < total_pages else None)
-
-
-def change_page(step):
-    global current_page
-    current_page += step
-    fill_table()
-    render_pagination()
-
-
-def goto_page(num):
-    global current_page
-    current_page = num
-    fill_table()
-    render_pagination()
+    ttk.Button(
+        pagination_frame,
+        text="▶",
+        command=lambda: load_data(current_page + 1)
+    ).pack(side="left", padx=5)

@@ -12,6 +12,18 @@ import tkinter as tk
 # Suppress InsecureRequestWarning for unverified HTTPS requests
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# common_signature_api.py
+
+ACCESS_TOKEN = None   # global
+
+def set_access_token(token):
+    global ACCESS_TOKEN
+    ACCESS_TOKEN = token
+
+def get_access_token():
+    return ACCESS_TOKEN
+
+
 # --- Artemis API Details (Constants) ---
 APP_KEY = "11566257"
 APP_SECRET = "DBntId5f4LZPfW1Ik5Yh"
@@ -115,36 +127,45 @@ def send_to_api(data_payload, api_path, clear_callback):
     except Exception as e:
         messagebox.showerror("Unhandled Error", str(e))
 
-def get_visitor_list():
+def get_visitor_list(page_no=1, page_size=16,
+                     appoint_start=None, appoint_end=None):
     try:
-        api_path = "/artemis/api/visitor/v1/visitor/visitorInfo"
-        body = json.dumps({
-            "pageNo": 1,
-            "pageSize": 100,
-            "searchCriteria": {}
-        })
+        api_path = "/artemis/api/visitor/v1/appointment/appointmentlist"
+
+        body_dict = {
+            "pageNo": page_no,
+            "pageSize": page_size
+        }
+
+        if appoint_start and appoint_end:
+            body_dict["appointStartTime"] = appoint_start
+            body_dict["appointEndTime"] = appoint_end
+
+        body = json.dumps(body_dict)
 
         headers = create_signature("POST", body, api_path)
+
         url = f"{BASE_URL}{api_path}"
 
-        response = requests.post(url, headers=headers, data=body, verify=False, timeout=10)
+        response = requests.post(
+            url,
+            headers=headers,
+            data=body,
+            verify=False,
+            timeout=10
+        )
 
         if response.status_code == 200:
             data = response.json()
-            print("DEBUG Raw API Response:", data)
 
             if data.get("code") == "0":
-                visitor_data = data.get("data", {}).get("VisitorInfo", [])
-                print("DEBUG Visitor count:", len(visitor_data))
-                return visitor_data
+                return data.get("data", {}).get("list", [])
             else:
-                messagebox.showerror("API Error", data.get("msg", "Unknown error"))
                 return []
-        else:
-            messagebox.showerror("HTTP Error", f"Status: {response.status_code}\n{response.text}")
-            return []
+
+        return []
     except Exception as e:
-        messagebox.showerror("Unhandled Error", f"Visitor list fetch failed:\n{e}")
+        print("API ERROR:", e)
         return []
     
 # ------------------------------------------------------------

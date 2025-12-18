@@ -4,7 +4,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
 import Api.Common_signature.common_signature_api as api_handler
-import Api.Homepage.Ui
+
+# REMOVED: import Api.Homepage.Ui  <-- This was causing the crash
 
 # ===== COLORS =====
 BG_COLOR = "#F4F6F7"
@@ -36,12 +37,13 @@ def clear_form_entries(root_instance):
         if entries[key].winfo_exists():
             entries[key].delete(0, tk.END)
 
-    gender_var.set(1)
-    purpose_var.set("Business")
+    if gender_var: gender_var.set(1)
+    if purpose_var: purpose_var.set("Business")
 
 
 # ------------------------------------------------------
-def handle_send(root_instance):
+# UPDATED: Now accepts 'on_success_callback' instead of importing it
+def handle_send(root_instance, on_success_callback):
     global gender_var, purpose_var
 
     try:
@@ -56,11 +58,7 @@ def handle_send(root_instance):
         visitEndTime = f"{end_date_str}T17:00:00+08:00"
 
         purpose_map = {
-            "Business": 0,
-            "Training": 1,
-            "Visit": 2,
-            "Meeting": 3,
-            "Others": 4
+            "Business": 0, "Training": 1, "Visit": 2, "Meeting": 3, "Others": 4
         }
 
         visit_purpose_type = purpose_map.get(purpose_var.get(), 0)
@@ -94,7 +92,8 @@ def handle_send(root_instance):
 
         def safe_transition_to_home():
             clear_form_entries(root_instance)
-            root_instance.after(0, Api.Homepage.Ui.show_home)
+            # Use the passed callback instead of the hardcoded import
+            root_instance.after(0, on_success_callback)
 
         api_handler.send_to_api(data_payload, VISITOR_API_PATH, safe_transition_to_home)
 
@@ -232,10 +231,11 @@ def show_create_form(root_instance, show_main_screen_callback, close_app_callbac
     ttk.Radiobutton(gender_frame, text="Unknown", value=0, variable=gender_var).pack(side="left", padx=5)
 
     # ===== SAVE BUTTON =====
+    # UPDATED: We pass the 'show_main_screen_callback' to handle_send
     save_btn = ttk.Button(
         root_instance,
         text="💾 Save & Send to API",
-        command=lambda: handle_send(root_instance)
+        command=lambda: handle_send(root_instance, show_main_screen_callback)
     )
     save_btn.grid(row=row_index, column=0, sticky="e", padx=40, pady=(10, 20))
     row_index += 1
