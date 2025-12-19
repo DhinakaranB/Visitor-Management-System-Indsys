@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os, sys
-from PIL import Image, ImageTk
 
 # --- DEBUG: Start ---
 print("--- Ui.py: Starting initialization ---")
@@ -13,21 +12,25 @@ print("--- Ui.py: Starting initialization ---")
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
 try:
-    print("--- Ui.py: Attempting imports ---")
+    # --- CORE IMPORTS ---
     from src.Api.visitor_screen import visitor_registerment as visitor_form
     from src.Api.visitor_screen import visitor_list_Info as visitor_list
     from src.Api.Common_signature import common_signature_api
     from src.Api.Door_screen import door_list_Info as door_list
     from src.Api.Door_screen import linked_door_info as linked_doors
     from src.Api.Homepage.home_screen import load_home_screen
-    from src.Api.visitor_screen.visitor_edit import show_visitor_edit
-    from src.Api.visitor_screen.visitor_delete import show_visitor_delete
-    print("--- Ui.py: Imports successful ---")
+    from src.Api.visitor_screen.visitor_group import show_visitor_group_screen 
+
+    # --- NEW MODULES (FIXED LOCATION) ---
+    # These files are in 'src/Api/visitor_screen/', NOT 'Homepage'
+    from src.Api.visitor_screen import VisitorRegisterDetails as visitorRegisterDetails
+    from src.Api.visitor_screen import VisitorQRconfig as visitorQRconfig
+    
+    print("✅ Successfully imported VisitorRegisterDetails & VisitorQRconfig")
 
 except Exception as e:
-    print(f"--- Ui.py: IMPORT ERROR: {e} ---")
-    print("--- Ui.py: Loading MOCK API fallback ---")
-
+    print("IMPORT ERROR:", e)
+    # Mock classes to prevent crash
     class MockAPI:
         def show_create_form(*a): print("Mock: show_create_form")
         def show_single_visitor_list(*a): print("Mock: show_single_visitor_list")
@@ -38,9 +41,20 @@ except Exception as e:
     visitor_list = MockAPI()
     door_list = MockAPI()
     linked_doors = MockAPI()
+    
+    # Fallback for new modules
+    class FakeModule:
+        @staticmethod
+        def render_register_details(parent):
+            tk.Label(parent, text=f"⚠️ Import Error:\n{e}", fg="red").pack(pady=20)
+        @staticmethod
+        def render_qr_config(parent):
+            tk.Label(parent, text=f"⚠️ Import Error:\n{e}", fg="red").pack(pady=20)
+            
+    visitorRegisterDetails = FakeModule()
+    visitorQRconfig = FakeModule()
 
-    def load_home_screen(*args, **kwargs):
-        print("Mock: load_home_screen (Home screen import failed!)")
+    def load_home_screen(*args, **kwargs): print("Mock: load_home_screen")
 
 
 # -----------------------------------------
@@ -49,8 +63,6 @@ except Exception as e:
 BG_COLOR = "#D6EAF8"
 NAVBAR_BLUE = "#0A74FF"
 WHITE = "#FFFFFF"
-TEXT_COLOR = "#2C3E50"
-PRIMARY_COLOR = "#2C3EFA"
 
 root = None
 content_frame = None
@@ -59,16 +71,31 @@ nav = None
 # -----------------------------------------
 # NAVIGATION FUNCTIONS
 # -----------------------------------------
+def clear_content():
+    """Removes all widgets from the content frame"""
+    for widget in content_frame.winfo_children():
+        widget.destroy()
+
 def show_home():
-    print("--- Ui.py: Loading Home Screen ---")
-    load_home_screen(content_frame)    
+    clear_content()
+    load_home_screen(content_frame)     
 
 def show_add_visitor():
-    # Pass 'show_home' as the callback so the form knows how to return
     visitor_form.show_create_form(content_frame, show_home, close_application)
 
 def show_single_visitor_list_external():
     visitor_list.show_single_visitor_list(content_frame)
+
+def show_visitor_groups():
+    show_visitor_group_screen(content_frame)
+
+def show_visitor_register():
+    clear_content()
+    visitorRegisterDetails.render_register_details(content_frame)
+
+def show_visitor_QR():
+    clear_content()
+    visitorQRconfig.render_qr_config(content_frame)
 
 def show_door_list():
     door_list.show_door_list(content_frame)
@@ -100,6 +127,7 @@ def open_door_dropdown(widget):
     item("🚪 Door List", show_door_list)
     item("🔗 Linked Doors", show_linked_doors)
     menu.bind("<FocusOut>", lambda e: menu.destroy())
+    menu.focus_force()
 
 def open_visitor_dropdown(widget):
     menu = tk.Toplevel(root)
@@ -107,7 +135,7 @@ def open_visitor_dropdown(widget):
     menu.config(bg="white")
     x = widget.winfo_rootx()
     y = widget.winfo_rooty() + widget.winfo_height()
-    menu.geometry(f"200x200+{x}+{y}")
+    menu.geometry(f"240x240+{x}+{y}") 
 
     def item(txt, cmd):
         lbl = tk.Label(menu, text=txt, bg="white", fg="#1F2D3D", font=("Segoe UI", 10), padx=14, pady=7, anchor="w")
@@ -116,13 +144,12 @@ def open_visitor_dropdown(widget):
         lbl.bind("<Leave>", lambda e: lbl.config(bg="white"))
         lbl.bind("<Button-1>", lambda e: (menu.destroy(), cmd()))
 
-    item("Add Visitor", show_add_visitor)
-    item("Visitor List", show_single_visitor_list_external)
-    item("Edit Visitor", lambda: show_visitor_edit(content_frame))
-    separator = tk.Frame(menu, bg="#E5E7EB", height=1)
-    separator.pack(fill="x", pady=4, padx=8)
-    item("Create Appointment", lambda: messagebox.showinfo("Info", "Coming soon"))
-    
+    item("Visitor Registration", show_add_visitor)
+    item("Visitor List || Edit | Delete", show_single_visitor_list_external)
+    item("Visitor Groups", show_visitor_groups)
+    item("Visitor Register Details", show_visitor_register)
+    item("Visitor QR Config", show_visitor_QR)
+
     menu.bind("<FocusOut>", lambda e: menu.destroy())
     menu.focus_force()
 
@@ -131,7 +158,6 @@ def open_visitor_dropdown(widget):
 # -----------------------------------------
 def setup_navbar():
     global nav
-    print("--- Ui.py: Setting up Navbar ---")
     nav = tk.Frame(root, bg=NAVBAR_BLUE, height=55)
     nav.grid_propagate(False)
 
@@ -174,33 +200,20 @@ def init_ui():
         root.grid_rowconfigure(2, weight=0)
         root.grid_columnconfigure(0, weight=1)
 
-        # 1. Setup and Show Navbar
         nav = setup_navbar()
         nav.grid(row=0, column=0, sticky="ew")
 
-        # 2. Setup Content Frame
-        print("--- Ui.py: Creating Content Frame ---")
         content_frame = tk.Frame(root, bg=BG_COLOR)
         content_frame.grid(row=1, column=0, sticky="nsew")
 
-        # 3. Footer
-        footer = tk.Label(root, text="© 2025 Indsys Holdings - All rights reserved.", font=("Segoe UI",9), bg=BG_COLOR, fg="#777")
-        footer.grid(row=2, column=0, pady=8)
+        tk.Label(root, text="© 2025 Indsys Holdings - All rights reserved.", font=("Segoe UI",9), bg=BG_COLOR, fg="#777").grid(row=2, column=0, pady=8)
 
-        # 4. Show Home immediately (Login skipped)
         show_home()
-        print("--- Ui.py: Initialization Complete ---")
 
     except Exception as e:
-        print(f"!!! CRITICAL ERROR IN INIT_UI: {e} !!!")
         messagebox.showerror("Critical Error", f"Failed to load UI:\n{e}")
 
-# -----------------------------------------
-# BOOT
-# -----------------------------------------
 if __name__ == "__main__":
-    print("--- Ui.py: __main__ started ---")
     root = tk.Tk()
     init_ui()
-    print("--- Ui.py: Entering Mainloop ---")
     root.mainloop()

@@ -2,6 +2,8 @@ import os
 import sys
 import runpy
 import shutil
+# import visitorRegisterDetails
+# import visitorQRconfig
 
 # --- Base Path Setup ---
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
