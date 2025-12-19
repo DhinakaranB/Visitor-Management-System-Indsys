@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import os, sys
+import os, sys  
+import common_header    
 
 # --- DEBUG: Start ---
 print("--- Ui.py: Starting initialization ---")
@@ -8,7 +9,6 @@ print("--- Ui.py: Starting initialization ---")
 # -----------------------------------------
 # SAFE IMPORT HANDLING
 # -----------------------------------------
-# Ensure project root is in path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
 try:
@@ -20,9 +20,15 @@ try:
     from src.Api.Door_screen import linked_door_info as linked_doors
     from src.Api.Homepage.home_screen import load_home_screen
     from src.Api.visitor_screen.visitor_group import show_visitor_group_screen 
+    from src.Api.Homepage import common_header
 
-    # --- NEW MODULES (FIXED LOCATION) ---
-    # These files are in 'src/Api/visitor_screen/', NOT 'Homepage'
+
+    from src.Api import person_form 
+    from src.Api import person_list
+except Exception as e:
+    print("Import Error:", e)
+
+    # --- NEW MODULES ---
     from src.Api.visitor_screen import VisitorRegisterDetails as visitorRegisterDetails
     from src.Api.visitor_screen import VisitorQRconfig as visitorQRconfig
     
@@ -42,7 +48,6 @@ except Exception as e:
     door_list = MockAPI()
     linked_doors = MockAPI()
     
-    # Fallback for new modules
     class FakeModule:
         @staticmethod
         def render_register_details(parent):
@@ -56,16 +61,24 @@ except Exception as e:
 
     def load_home_screen(*args, **kwargs): print("Mock: load_home_screen")
 
+def show_add_person():
+    print("Opening Add Person Screen...")
+    # Pass 'show_person_list' so after saving, it goes to the list automatically
+    person_form.show_create_form(content_frame, on_success_callback=show_person_list)
+
+def show_person_list():
+    print("Opening Person List Screen...")
+    person_list.show_list(content_frame)
 
 # -----------------------------------------
-# COLORS
+# GLOBALS & COLORS
 # -----------------------------------------
 BG_COLOR = "#D6EAF8"
 NAVBAR_BLUE = "#0A74FF"
 WHITE = "#FFFFFF"
 
 root = None
-content_frame = None
+content_frame = None  # This will hold the changing screens
 nav = None
 
 # -----------------------------------------
@@ -73,11 +86,13 @@ nav = None
 # -----------------------------------------
 def clear_content():
     """Removes all widgets from the content frame"""
-    for widget in content_frame.winfo_children():
-        widget.destroy()
+    if content_frame:
+        for widget in content_frame.winfo_children():
+            widget.destroy()
 
 def show_home():
     clear_content()
+    # Pass content_frame as the parent for the home screen
     load_home_screen(content_frame)     
 
 def show_add_visitor():
@@ -153,41 +168,66 @@ def open_visitor_dropdown(widget):
     menu.bind("<FocusOut>", lambda e: menu.destroy())
     menu.focus_force()
 
-# -----------------------------------------
-# NAVBAR
-# -----------------------------------------
+def open_person_dropdown(widget):
+    # 1. Create the popup menu window
+    menu = tk.Toplevel(root)
+    menu.overrideredirect(True) # Removes window borders
+    menu.config(bg="white")
+    
+    # 2. Calculate position (appears right under the button)
+    x = widget.winfo_rootx()
+    y = widget.winfo_rooty() + widget.winfo_height()
+    menu.geometry(f"200x100+{x}+{y}") # Adjusted size for 2 items
+
+    # 3. Helper to create menu items
+    def item(txt, cmd):
+        lbl = tk.Label(menu, text=txt, bg="white", fg="#1F2D3D", font=("Segoe UI", 10), padx=14, pady=7, anchor="w")
+        lbl.pack(fill="x")
+        # Hover effects (Light Blue)
+        lbl.bind("<Enter>", lambda e: lbl.config(bg="#EEF3FF"))
+        lbl.bind("<Leave>", lambda e: lbl.config(bg="white"))
+        # Click action
+        lbl.bind("<Button-1>", lambda e: (menu.destroy(), cmd()))
+
+    # 4. Add the Menu Items
+    item("Add Person", show_add_person)
+    item("Person List (Edit/Delete)", show_person_list)
+
+    # 5. Close menu if user clicks away
+    menu.bind("<FocusOut>", lambda e: menu.destroy())
+    menu.focus_force()
+
+
 def setup_navbar():
+    print("--- Ui.py: Setting up Navbar via common_header ---")
+    
+    common_header.render_global_header(
+        root,
+        home_fn=show_home,
+        visitor_fn=open_visitor_dropdown,
+        
+        # LINK THE NEW DROPDOWN HERE:
+        person_fn=open_person_dropdown,  
+        
+        vehicle_fn=lambda w: print("Vehicle Clicked"), # We will do Vehicle next
+        door_fn=open_door_dropdown,
+        access_fn=lambda: messagebox.showinfo("Info", "Access Control Coming Soon")
+    )
+    
     global nav
-    nav = tk.Frame(root, bg=NAVBAR_BLUE, height=55)
-    nav.grid_propagate(False)
+    global content_frame
+    
+    content_frame = tk.Frame(root, bg=BG_COLOR) 
+    content_frame.pack(fill="both", expand=True) 
 
-    left = tk.Frame(nav, bg=NAVBAR_BLUE)
-    left.pack(side="left", fill="y")
+    show_home()
 
-    tk.Label(left, text="VisitorMS", bg=NAVBAR_BLUE, fg=WHITE, font=("Segoe UI",15,"bold"), padx=18).pack(side="left")
-
-    def menu(text, cmd=None):
-        lbl = tk.Label(left, text=text, bg=NAVBAR_BLUE, fg=WHITE, font=("Segoe UI",11), padx=15, cursor="hand2")
-        lbl.pack(side="left")
-        lbl.bind("<Enter>", lambda e: lbl.config(fg="#DCE6FF"))
-        lbl.bind("<Leave>", lambda e: lbl.config(fg=WHITE))
-        if cmd: lbl.bind("<Button-1>", lambda e: cmd())
-        return lbl
-
-    menu("Home", show_home)
-    v = menu("Visitor ▼")
-    v.bind("<Button-1>", lambda e: open_visitor_dropdown(v))
-    d = menu("Door ▼")
-    d.bind("<Button-1>", lambda e: open_door_dropdown(d))
-    menu("Access Control", lambda: None)
-
-    return nav
 
 # -----------------------------------------
 # MAIN UI INIT
 # -----------------------------------------
 def init_ui():
-    global root, content_frame, nav
+    global root
 
     try:
         print("--- Ui.py: Applying Geometry ---")
@@ -195,20 +235,15 @@ def init_ui():
         root.geometry("1100x750")
         root.configure(bg=BG_COLOR)
 
-        root.grid_rowconfigure(0, weight=0)
-        root.grid_rowconfigure(1, weight=1)
-        root.grid_rowconfigure(2, weight=0)
-        root.grid_columnconfigure(0, weight=1)
+        # NOTE: We do NOT use grid_rowconfigure on root anymore 
+        # because the Header uses pack(). Mixing them causes the crash.
+        
+        # 1. Setup Navbar & Content Area
+        setup_navbar()
 
-        nav = setup_navbar()
-        nav.grid(row=0, column=0, sticky="ew")
-
-        content_frame = tk.Frame(root, bg=BG_COLOR)
-        content_frame.grid(row=1, column=0, sticky="nsew")
-
-        tk.Label(root, text="© 2025 Indsys Holdings - All rights reserved.", font=("Segoe UI",9), bg=BG_COLOR, fg="#777").grid(row=2, column=0, pady=8)
-
-        show_home()
+        # 2. Add Footer (Use pack to match the header)
+        footer = tk.Label(root, text="© 2025 Indsys Holdings - All rights reserved.", font=("Segoe UI",9), bg=BG_COLOR, fg="#777")
+        footer.pack(side="bottom", pady=8)
 
     except Exception as e:
         messagebox.showerror("Critical Error", f"Failed to load UI:\n{e}")

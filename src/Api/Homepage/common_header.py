@@ -1,48 +1,51 @@
 import tkinter as tk
-from tkinter import ttk
 
-HEADER_BG = "#003B73"     # Navy blue
-HEADER_HOVER = "#0058A3"  # Hover blue
-HEADER_TEXT = "white"
-HEADER_FONT = ("Segoe UI", 11, "bold")
+def render_global_header(root, home_fn, visitor_fn, person_fn, vehicle_fn, door_fn, access_fn):
+    """
+    Renders the blue navigation bar with ALL buttons visible.
+    """
+    
+    # 1. Main Header Frame (Blue Background)
+    header_frame = tk.Frame(root, bg="#007bff", height=60)
+    header_frame.pack(side="top", fill="x")
+    
+    # 2. Title Label ("VisitorMS")
+    title_label = tk.Label(
+        header_frame, 
+        text="VisitorMS", 
+        font=("Arial", 16, "bold"), 
+        bg="#007bff", 
+        fg="white"
+    )
+    title_label.pack(side="left", padx=20, pady=10)
 
-# ----------------------------------------------------------------------
-# GLOBAL NAVIGATION HEADER — REUSABLE ON ALL SCREENS
-# ----------------------------------------------------------------------
-def render_global_header(root, home_fn, add_fn, list_fn, door_fn, access_fn):
-
-    # Clear previous header if exists
-    for w in root.grid_slaves(row=0):
-        w.destroy()
-
-    header = tk.Frame(root, bg=HEADER_BG, height=45)
-    header.grid(row=0, column=0, sticky="ew")
-    header.grid_columnconfigure(20, weight=1)
-
-    # Logo / Brand text
-    tk.Label(
-        header, text="VisitorMS",
-        font=("Segoe UI", 15, "bold"), fg="white", bg=HEADER_BG, padx=20
-    ).grid(row=0, column=0, sticky="w")
-
-    # Reusable button creator
-    def nav_button(text, col, fn):
-        lbl = tk.Label(
-            header, text=text,
-            font=HEADER_FONT,
-            fg="white", bg=HEADER_BG,
-            padx=18, cursor="hand2"
+    # 3. Helper Function to create buttons consistently
+    def nav_button(text, index, command_func):
+        btn = tk.Button(
+            header_frame,
+            text=text,
+            bg="#007bff",
+            fg="white",
+            activebackground="#0056b3",
+            activeforeground="white",
+            font=("Arial", 12),
+            bd=0,
+            relief="flat",
+            padx=15,
+            # We wrap the command so it passes the button widget 'w' if needed
+            command=lambda: command_func(btn) 
         )
-        lbl.grid(row=0, column=col)
+        btn.pack(side="left", fill="y", padx=2)
+        return btn
 
-        lbl.bind("<Enter>", lambda e: lbl.config(bg=HEADER_HOVER))
-        lbl.bind("<Leave>", lambda e: lbl.config(bg=HEADER_BG))
-        lbl.bind("<Button-1>", lambda e: fn())
-        return lbl
+    # 4. Create ALL Buttons (No IF statements, so they MUST show up)
+    # Note: We expect command_func to accept 1 argument (the widget 'w')
+    
+    nav_button("Home",             1, lambda w: home_fn())
+    nav_button("Visitor ▼",        2, lambda w: visitor_fn(w))
+    nav_button("Person ▼",         3, lambda w: person_fn(w))   # <-- Forced to show
+    nav_button("Vehicle ▼",        4, lambda w: vehicle_fn(w))  # <-- Forced to show
+    nav_button("Door ▼",           5, lambda w: door_fn(w))
+    nav_button("Access Control",   6, lambda w: access_fn())
 
-    # Navigation Buttons
-    nav_button("Home",          1, home_fn)
-    nav_button("Add Visitor",   2, add_fn)
-    nav_button("Visitor List",  3, list_fn)
-    nav_button("Door ▼",        4, door_fn)
-    nav_button("Access Control",5, access_fn)
+    return header_frame
