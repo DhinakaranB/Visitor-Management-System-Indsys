@@ -11,8 +11,8 @@ print("--- Ui.py: Starting initialization ---")
 # -----------------------------------------
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
+# 1. CORE IMPORTS (Visitor, Door, Person, Vehicle)
 try:
-    # --- CORE IMPORTS ---
     from src.Api.visitor_screen import visitor_registerment as visitor_form
     from src.Api.visitor_screen import visitor_list_Info as visitor_list
     from src.Api.Common_signature import common_signature_api
@@ -22,27 +22,28 @@ try:
     from src.Api.visitor_screen.visitor_group import show_visitor_group_screen 
     from src.Api.Homepage import common_header
     
-    # --- VEHICLE IMPORTS ---
+    # Vehicle
     from src.Api.vehicle_screen import vehicle_form
     from src.Api.vehicle_screen import vehicle_list
-    from src.Api.vehicle_screen import vehicle_screen  # The new extras file
+    from src.Api.vehicle_screen import vehicle_screen
 
-    # --- PERSON IMPORTS ---
+    # Person
     from src.Api.person_screen import person_form
     from src.Api.person_screen import person_list  
 
-    # --- NEW MODULES ---
+    # Visitor Extras
     from src.Api.visitor_screen import VisitorRegisterDetails as visitorRegisterDetails
     from src.Api.visitor_screen import VisitorQRconfig as visitorQRconfig
     
-    print("✅ Successfully imported all modules")
+    print("✅ Core modules imported successfully")
 
 except Exception as e:
-    print("IMPORT ERROR:", e)
-    # Mock classes to prevent crash
+    print(f"❌ CRITICAL IMPORT ERROR: {e}")
+    # Define mocks so the app doesn't crash completely
     class MockAPI:
         def show_create_form(*a): print("Mock: show_create_form")
         def show_single_visitor_list(*a): print("Mock: show_single_visitor_list")
+        def show_list(*a): print("Mock: show_list")
         def show_door_list(*a): print("Mock: show_door_list")
         def show_linked_doors(*a): print("Mock: show_linked_doors")
 
@@ -50,19 +51,43 @@ except Exception as e:
     visitor_list = MockAPI()
     door_list = MockAPI()
     linked_doors = MockAPI()
+    vehicle_form = MockAPI()
+    vehicle_list = MockAPI()
+    vehicle_screen = MockAPI()
+    person_form = MockAPI()
+    person_list = MockAPI()
     
     class FakeModule:
         @staticmethod
-        def render_register_details(parent):
-            tk.Label(parent, text=f"⚠️ Import Error:\n{e}", fg="red").pack(pady=20)
+        def render_register_details(parent): pass
         @staticmethod
-        def render_qr_config(parent):
-            tk.Label(parent, text=f"⚠️ Import Error:\n{e}", fg="red").pack(pady=20)
+        def render_qr_config(parent): pass
             
     visitorRegisterDetails = FakeModule()
     visitorQRconfig = FakeModule()
-
     def load_home_screen(*args, **kwargs): print("Mock: load_home_screen")
+
+
+# 2. NEW DOOR IMPORTS (Isolated - won't crash the app if missing)
+region_list = None
+org_creation = None
+area_creation = None
+
+try:
+    from src.Api.Door_screen import region_list
+except ImportError:
+    print("⚠️ region_list.py not found in Door_screen")
+
+try:
+    from src.Api.Door_screen import org_creation
+except ImportError:
+    print("⚠️ org_creation.py not found in Door_screen")
+
+try:
+    # Keep support for your old file if it exists
+    from src.Api.Door_screen import area_creation
+except ImportError:
+    pass
 
 # -----------------------------------------
 # WRAPPER FUNCTIONS
@@ -122,13 +147,21 @@ def close_application():
 # -----------------------------------------
 # DROPDOWNS
 # -----------------------------------------
+
 def open_door_dropdown(widget):
     menu = tk.Toplevel(root)
     menu.overrideredirect(True)
     menu.config(bg="white")
     x = widget.winfo_rootx()
     y = widget.winfo_rooty() + widget.winfo_height()
-    menu.geometry(f"180x120+{x}+{y}")
+    
+    # Dynamic height calculation based on available items
+    menu_height = 80
+    if region_list: menu_height += 35
+    if org_creation: menu_height += 35
+    elif area_creation: menu_height += 35
+    
+    menu.geometry(f"220x{menu_height}+{x}+{y}")
 
     def item(txt, cmd):
         lbl = tk.Label(menu, text=txt, bg="white", fg="#1F2D3D", font=("Segoe UI",10), padx=10, pady=7, anchor="w")
@@ -137,8 +170,19 @@ def open_door_dropdown(widget):
         lbl.bind("<Leave>", lambda e: lbl.config(bg="white"))
         lbl.bind("<Button-1>", lambda e: (menu.destroy(), cmd()))
 
+    # Core Items
     item("🚪 Door List", show_door_list)
     item("🔗 Linked Doors", show_linked_doors)
+    
+    # Safe Items (Only show if files exist)
+    if region_list:
+        item("📋 Region/Area List", lambda: region_list.show_region_list(content_frame))
+    
+    if org_creation:
+        item("➕ Create Org (Logical)", lambda: org_creation.show_org_creation(content_frame))
+    elif area_creation:
+        item("➕ Create Area", lambda: area_creation.show_area_creation(content_frame))
+
     menu.bind("<FocusOut>", lambda e: menu.destroy())
     menu.focus_force()
 
@@ -187,7 +231,6 @@ def open_person_dropdown(widget):
     menu.bind("<FocusOut>", lambda e: menu.destroy())
     menu.focus_force()
 
-# --- NEW: VEHICLE DROPDOWN ---
 def open_vehicle_dropdown(widget):
     menu = tk.Toplevel(root)
     menu.overrideredirect(True) 
@@ -235,8 +278,8 @@ def setup_navbar():
         home_fn=show_home,
         visitor_fn=open_visitor_dropdown,
         person_fn=open_person_dropdown,
-        vehicle_fn=open_vehicle_dropdown,  # <--- LINKED NEW FUNCTION HERE
-        door_fn=open_door_dropdown,
+        vehicle_fn=open_vehicle_dropdown, 
+        door_fn=open_door_dropdown,       
         access_fn=lambda: messagebox.showinfo("Info", "Access Control Coming Soon")
     )
     

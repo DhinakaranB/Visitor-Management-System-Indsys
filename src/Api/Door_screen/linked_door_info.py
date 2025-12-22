@@ -49,7 +49,7 @@ def show_linked_doors(content_frame):
     # 🔵 Title
     tk.Label(
         content_frame,
-        text="🔗 Linked Doors",
+        text="Doors List",
         font=("Segoe UI", 18, "bold"),
         bg="white",
         fg=TEXT_DARK,
