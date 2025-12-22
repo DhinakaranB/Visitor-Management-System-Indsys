@@ -21,21 +21,21 @@ try:
     from src.Api.Homepage.home_screen import load_home_screen
     from src.Api.visitor_screen.visitor_group import show_visitor_group_screen 
     from src.Api.Homepage import common_header
-    from src.Api.visitor_screen import VisitorRegisterDetails as visitorRegisterDetails
-    from src.Api.visitor_screen import VisitorQRconfig as visitorQRconfig
+    
+    # --- VEHICLE IMPORTS ---
+    from src.Api.vehicle_screen import vehicle_form
+    from src.Api.vehicle_screen import vehicle_list
+    from src.Api.vehicle_screen import vehicle_screen  # The new extras file
 
-
-    # Import the FILE (module), not something inside it
+    # --- PERSON IMPORTS ---
     from src.Api.person_screen import person_form
     from src.Api.person_screen import person_list  
-except Exception as e:
-    print("Import Error:", e)
 
     # --- NEW MODULES ---
     from src.Api.visitor_screen import VisitorRegisterDetails as visitorRegisterDetails
     from src.Api.visitor_screen import VisitorQRconfig as visitorQRconfig
     
-    print("✅ Successfully imported VisitorRegisterDetails & VisitorQRconfig")
+    print("✅ Successfully imported all modules")
 
 except Exception as e:
     print("IMPORT ERROR:", e)
@@ -64,38 +64,33 @@ except Exception as e:
 
     def load_home_screen(*args, **kwargs): print("Mock: load_home_screen")
 
+# -----------------------------------------
+# WRAPPER FUNCTIONS
+# -----------------------------------------
 def show_add_person():
-    print("Opening Add Person Screen...")   
-    # Pass 'show_person_list' so after saving, it goes to the list automatically
     person_form.show_create_form(content_frame, on_success_callback=show_person_list)
 
 def show_person_list():
-    print("Opening Person List Screen...")
     person_list.show_list(content_frame)
 
 # -----------------------------------------
 # GLOBALS & COLORS
 # -----------------------------------------
 BG_COLOR = "#D6EAF8"
-NAVBAR_BLUE = "#0A74FF"
-WHITE = "#FFFFFF"
-
 root = None
-content_frame = None  # This will hold the changing screens
+content_frame = None  
 nav = None
 
 # -----------------------------------------
 # NAVIGATION FUNCTIONS
 # -----------------------------------------
 def clear_content():
-    """Removes all widgets from the content frame"""
     if content_frame:
         for widget in content_frame.winfo_children():
             widget.destroy()
 
 def show_home():
     clear_content()
-    # Pass content_frame as the parent for the home screen
     load_home_screen(content_frame)     
 
 def show_add_visitor():
@@ -172,35 +167,66 @@ def open_visitor_dropdown(widget):
     menu.focus_force()
 
 def open_person_dropdown(widget):
-    # 1. Create the popup menu window
     menu = tk.Toplevel(root)
-    menu.overrideredirect(True) # Removes window borders
+    menu.overrideredirect(True) 
     menu.config(bg="white")
-    
-    # 2. Calculate position (appears right under the button)
     x = widget.winfo_rootx()
     y = widget.winfo_rooty() + widget.winfo_height()
-    menu.geometry(f"200x100+{x}+{y}") # Adjusted size for 2 items
+    menu.geometry(f"200x100+{x}+{y}") 
 
-    # 3. Helper to create menu items
     def item(txt, cmd):
         lbl = tk.Label(menu, text=txt, bg="white", fg="#1F2D3D", font=("Segoe UI", 10), padx=14, pady=7, anchor="w")
         lbl.pack(fill="x")
-        # Hover effects (Light Blue)
         lbl.bind("<Enter>", lambda e: lbl.config(bg="#EEF3FF"))
         lbl.bind("<Leave>", lambda e: lbl.config(bg="white"))
-        # Click action
         lbl.bind("<Button-1>", lambda e: (menu.destroy(), cmd()))
 
-    # 4. Add the Menu Items
     item("Add Person", show_add_person)
     item("Person List (Edit/Delete)", show_person_list)
 
-    # 5. Close menu if user clicks away
     menu.bind("<FocusOut>", lambda e: menu.destroy())
     menu.focus_force()
 
+# --- NEW: VEHICLE DROPDOWN ---
+def open_vehicle_dropdown(widget):
+    menu = tk.Toplevel(root)
+    menu.overrideredirect(True) 
+    menu.config(bg="white")
+    x = widget.winfo_rootx()
+    y = widget.winfo_rooty() + widget.winfo_height()
+    # Need taller height for 8 items
+    menu.geometry(f"250x320+{x}+{y}") 
 
+    def item(txt, cmd):
+        lbl = tk.Label(menu, text=txt, bg="white", fg="#1F2D3D", font=("Segoe UI", 10), padx=14, pady=7, anchor="w")
+        lbl.pack(fill="x")
+        lbl.bind("<Enter>", lambda e: lbl.config(bg="#EEF3FF"))
+        lbl.bind("<Leave>", lambda e: lbl.config(bg="white"))
+        lbl.bind("<Button-1>", lambda e: (menu.destroy(), cmd()))
+
+    # 1. Add Vehicle
+    item("Add Vehicle", lambda: vehicle_form.show_vehicle_form(content_frame, lambda: vehicle_list.show_list(content_frame)))
+    # 2. Vehicle List
+    item("Vehicle List", lambda: vehicle_list.show_list(content_frame))
+    # 3. Parking List
+    item("Vehicle Parking List", lambda: vehicle_screen.show_parking_list(content_frame))
+    # 4. Floor List
+    item("Floor List", lambda: vehicle_screen.show_floor_list(content_frame))
+    # 5. Floor Overview
+    item("Floor Overview", lambda: vehicle_screen.show_floor_overview(content_frame))
+    # 6. Passageway Record
+    item("Parkinglot Passageway Record", lambda: vehicle_screen.show_passageway_record(content_frame))
+    # 7. Fee Calculation
+    item("Parking Fee Calculation", lambda: vehicle_screen.show_fee_calc(content_frame))
+    # 8. Fees Confirm
+    item("Parking Fees Confirm", lambda: vehicle_screen.show_fee_confirm(content_frame))
+
+    menu.bind("<FocusOut>", lambda e: menu.destroy())
+    menu.focus_force()
+
+# -----------------------------------------
+# SETUP NAVBAR
+# -----------------------------------------
 def setup_navbar():
     print("--- Ui.py: Setting up Navbar via common_header ---")
     
@@ -208,11 +234,8 @@ def setup_navbar():
         root,
         home_fn=show_home,
         visitor_fn=open_visitor_dropdown,
-        
-        # LINK THE NEW DROPDOWN HERE:
-        person_fn=open_person_dropdown,  
-        
-        vehicle_fn=lambda w: print("Vehicle Clicked"), # We will do Vehicle next
+        person_fn=open_person_dropdown,
+        vehicle_fn=open_vehicle_dropdown,  # <--- LINKED NEW FUNCTION HERE
         door_fn=open_door_dropdown,
         access_fn=lambda: messagebox.showinfo("Info", "Access Control Coming Soon")
     )
@@ -238,13 +261,10 @@ def init_ui():
         root.geometry("1100x750")
         root.configure(bg=BG_COLOR)
 
-        # NOTE: We do NOT use grid_rowconfigure on root anymore 
-        # because the Header uses pack(). Mixing them causes the crash.
-        
         # 1. Setup Navbar & Content Area
         setup_navbar()
 
-        # 2. Add Footer (Use pack to match the header)
+        # 2. Add Footer
         footer = tk.Label(root, text="© 2025 Indsys Holdings - All rights reserved.", font=("Segoe UI",9), bg=BG_COLOR, fg="#777")
         footer.pack(side="bottom", pady=8)
 

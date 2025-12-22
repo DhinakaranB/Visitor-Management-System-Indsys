@@ -4,235 +4,120 @@ import random
 from datetime import datetime
 import json
 import urllib3
-import inspect 
-
-# --- IMPORT THE DATEPICKER ---
 from tkcalendar import DateEntry 
 
-# --- IMPORT YOUR SIGNATURE API ---
+# --- IMPORTS ---
 try:
     from src.Api.Common_signature import common_signature_api
-    print("✅ Loaded common_signature_api")
 except ImportError:
-    print("❌ Could not load common_signature_api. Check folder structure.")
     common_signature_api = None
+    
+# Import our new Edit module
+from src.Api.person_screen import person_edit
 
-# HTTPS Warnings disable
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-# --- API CONFIGURATION ---
-API_PATH = "/artemis/api/resource/v1/person/single/add"
+ADD_API_PATH = "/artemis/api/resource/v1/person/single/add"
 
 def generate_unique_id():
-    """Generates a unique numeric ID."""
     timestamp = datetime.now().strftime("%Y%m%d")
     rand_num = random.randint(1000, 9999)
     return f"{timestamp}{rand_num}"
 
-def show_create_form(parent_frame, on_success_callback=None):
-    # 1. Clear previous widgets
+def show_create_form(parent_frame, on_success_callback=None, edit_data=None):
+    """
+    edit_data: Dict of person details. If NOT None, form opens in 'Edit Mode'.
+    """
     for widget in parent_frame.winfo_children():
         widget.destroy()
 
-    # 2. Header
+    is_edit = edit_data is not None
+    title_txt = f"Edit Person ({edit_data['personCode']})" if is_edit else "Add Person (Secure API)"
+    btn_txt = "Update Person" if is_edit else "Save to API"
+    btn_color = "#ffc107" if is_edit else "#28a745"
+
+    # Header
     header_frame = tk.Frame(parent_frame, bg="white", pady=10)
     header_frame.pack(fill="x")
     tk.Button(header_frame, text="← Back", bg="white", bd=0, font=("Segoe UI", 10), 
               command=on_success_callback).pack(side="left", padx=10)
-    tk.Label(header_frame, text="Add Person (Secure API)", font=("Segoe UI", 18, "bold"), bg="white").pack(side="left", padx=10)
+    tk.Label(header_frame, text=title_txt, font=("Segoe UI", 18, "bold"), bg="white").pack(side="left", padx=10)
 
-    # 3. Form Container
     form_frame = tk.Frame(parent_frame, bg="white", padx=30, pady=20)
     form_frame.pack(fill="both", expand=True)
 
-    # --- INPUT VARIABLES ---
+    # --- VARIABLES (Pre-fill if editing) ---
     vars = {
-        "id": tk.StringVar(value=generate_unique_id()),
-        "first_name": tk.StringVar(),
-        "last_name": tk.StringVar(),
-        "phone": tk.StringVar(),
-        "email": tk.StringVar(),
-        "card": tk.StringVar(),
+        "id": tk.StringVar(value=edit_data.get("personCode") if is_edit else generate_unique_id()),
+        "first_name": tk.StringVar(value=edit_data.get("personGivenName", "") if is_edit else ""),
+        "last_name": tk.StringVar(value=edit_data.get("personFamilyName", "") if is_edit else ""),
+        "phone": tk.StringVar(value=edit_data.get("phoneNo", "") if is_edit else ""),
+        "email": tk.StringVar(value=edit_data.get("email", "") if is_edit else ""),
+        # Safely get card No
+        "card": tk.StringVar(value=edit_data.get("cards", [{}])[0].get("cardNo", "") if is_edit and edit_data.get("cards") else ""),
         "gender": tk.StringVar(value="1 - Male"), 
-        "remark": tk.StringVar()
+        "remark": tk.StringVar(value=edit_data.get("remark", "") if is_edit else "")
     }
+    
+    # Set Gender Logic
+    if is_edit:
+        g_val = str(edit_data.get("gender", "1"))
+        vars["gender"].set("1 - Male" if g_val == "1" else "2 - Female")
 
-    # --- HELPER: Create Text Rows ---
+    # --- FIELDS ---
     row_idx = 0
-    def add_row(label, var):
+    def add_row(label, var, readonly=False):
         nonlocal row_idx
         tk.Label(form_frame, text=label, bg="white", font=("Segoe UI", 10, "bold"), fg="#555").grid(row=row_idx, column=0, sticky="w", pady=(10, 0))
-        entry = tk.Entry(form_frame, textvariable=var, font=("Segoe UI", 10), width=40, bg="white")
-        entry.grid(row=row_idx, column=1, pady=(5, 10), padx=20, sticky="w")
+        ent = tk.Entry(form_frame, textvariable=var, font=("Segoe UI", 10), width=40, bg="#eee" if readonly else "white")
+        if readonly: ent.config(state="readonly")
+        ent.grid(row=row_idx, column=1, pady=(5, 10), padx=20, sticky="w")
         row_idx += 1
 
-    # --- RENDER FIELDS ---
-    add_row("Person Code (ID):", vars["id"])
+    # ID is Read-Only in Edit Mode (Primary Key)
+    add_row("Person Code (ID):", vars["id"], readonly=is_edit)
     add_row("First Name:", vars["first_name"])
     add_row("Last Name:", vars["last_name"])
     
-    # Gender
     tk.Label(form_frame, text="Gender:", bg="white", font=("Segoe UI", 10, "bold"), fg="#555").grid(row=row_idx, column=0, sticky="w", pady=(10, 0))
-    gender_cb = ttk.Combobox(form_frame, textvariable=vars["gender"], values=["1 - Male", "2 - Female"], width=38)
-    gender_cb.grid(row=row_idx, column=1, pady=(5, 10), padx=20, sticky="w")
+    ttk.Combobox(form_frame, textvariable=vars["gender"], values=["1 - Male", "2 - Female"], width=38).grid(row=row_idx, column=1, pady=5, padx=20, sticky="w")
     row_idx += 1
 
     add_row("Phone No:", vars["phone"])
     add_row("Email:", vars["email"])
     add_row("Card No:", vars["card"])
     
-    # --- DATE PICKERS ---
+    # --- DATES ---
     tk.Label(form_frame, text="--- Effective Period ---", bg="white", fg="#007bff", font=("Segoe UI", 9, "bold")).grid(row=row_idx, column=0, sticky="w", pady=(15, 5))
     row_idx += 1
     
-    # Begin Date
-    tk.Label(form_frame, text="Begin Date:", bg="white", font=("Segoe UI", 10, "bold"), fg="#555").grid(row=row_idx, column=0, sticky="w", pady=(10, 0))
-    begin_date_ent = DateEntry(form_frame, width=37, background='#007bff', foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
-    begin_date_ent.grid(row=row_idx, column=1, pady=(5, 10), padx=20, sticky="w")
-    row_idx += 1
+    def create_date(label, date_str=None):
+        nonlocal row_idx
+        tk.Label(form_frame, text=label, bg="white", font=("Segoe UI", 10, "bold"), fg="#555").grid(row=row_idx, column=0, sticky="w", pady=(10, 0))
+        d_ent = DateEntry(form_frame, width=37, background='#007bff', foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+        # If Editing, try to parse existing date
+        if is_edit and date_str:
+            try: d_ent.set_date(datetime.strptime(date_str[:10], "%Y-%m-%d"))
+            except: pass
+        d_ent.grid(row=row_idx, column=1, pady=5, padx=20, sticky="w")
+        row_idx += 1
+        return d_ent
 
-    # End Date
-    tk.Label(form_frame, text="End Date:", bg="white", font=("Segoe UI", 10, "bold"), fg="#555").grid(row=row_idx, column=0, sticky="w", pady=(10, 0))
-    end_date_ent = DateEntry(form_frame, width=37, background='#007bff', foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
-    try:
-        current_year = int(datetime.now().year)
-        end_date_ent.set_date(datetime.now().replace(year=current_year + 10))
-    except:
-        pass
-    end_date_ent.grid(row=row_idx, column=1, pady=(5, 10), padx=20, sticky="w")
-    row_idx += 1
+    b_ent = create_date("Begin Date:", edit_data.get("beginTime") if is_edit else None)
+    e_ent = create_date("End Date:", edit_data.get("endTime") if is_edit else None)
     
     add_row("Remark:", vars["remark"])
 
-    # --- API SAVE FUNCTION (FIXED: Using 'call_api') ---
-    # def save_to_api(payload):
-    #     if not common_signature_api:
-    #         messagebox.showerror("Error", "Signature Module not found!\nCannot connect to Artemis.")
-    #         return
-
-    #     try:
-    #         print(f"📡 Sending Secure Request to: {API_PATH}")
-    #         response = None
-    #         json_body = json.dumps(payload)
-
-    #         # --- USING THE FUNCTION NAME FROM YOUR SCREENSHOT ---
-    #         if hasattr(common_signature_api, 'call_api'):
-    #              print("👉 Using 'call_api' function")
-    #              # call_api likely takes (api_url, json_body, method="POST")
-    #              # If it fails, try adding method="POST"
-    #              response = common_signature_api.call_api(API_PATH, json_body)
-            
-    #         elif hasattr(common_signature_api, 'send_to_api'):
-    #              print("👉 Using 'send_to_api' function")
-    #              response = common_signature_api.send_to_api(API_PATH, json_body)
-
-    #         else:
-    #              messagebox.showerror("Code Error", "Neither 'call_api' nor 'send_to_api' worked. Check parameter arguments.")
-    #              return
-
-    #         # 3. HANDLE RESPONSE
-    #         print(f"📄 Raw Response: {response}")
-
-    #         if isinstance(response, str):
-    #             data = json.loads(response)
-    #         else:
-    #             try:
-    #                 data = response.json()
-    #             except:
-    #                 data = response 
-
-    #         if data.get("code") == "0":
-    #             messagebox.showinfo("Success", f"Person Added Successfully!\nMsg: {data.get('msg')}")
-    #             if on_success_callback:
-    #                 on_success_callback()
-    #         else:
-    #             messagebox.showerror("API Error", f"Failed to add person.\nError: {data.get('msg')}\nCode: {data.get('code')}")
-
-    #     except Exception as e:
-    #         print("❌ API Exception:", e)
-    #         messagebox.showerror("Connection Error", f"Could not connect to API.\n{e}")
-
-    # --- API SAVE FUNCTION (FIXED) ---
-    def save_to_api(payload):
-        if not common_signature_api:
-            messagebox.showerror("Error", "Signature Module not found!\nCannot connect to Artemis.")
-            return
-
-        try:
-            print(f"📡 Sending Secure Request to: {API_PATH}")
-            response = None
-            
-            # --- CRITICAL FIX ---
-            # Do NOT use json.dumps(payload). 
-            # Send 'payload' (the dictionary) directly.
-            # Your common_signature_api handles the conversion internally.
-            
-            if hasattr(common_signature_api, 'call_api'):
-                 print("👉 Using 'call_api' with Dictionary")
-                 response = common_signature_api.call_api(API_PATH, payload)
-            
-            elif hasattr(common_signature_api, 'send_to_api'):
-                 print("👉 Using 'send_to_api' with Dictionary")
-                 response = common_signature_api.send_to_api(API_PATH, payload)
-            
-            elif hasattr(common_signature_api, 'post'):
-                 # Some versions of 'post' might strictly require a string.
-                 # If the above fails, uncomment the line below:
-                 # payload = json.dumps(payload) 
-                 response = common_signature_api.post(API_PATH, payload)
-
-            else:
-                 messagebox.showerror("Code Error", "Could not find API function (call_api/send_to_api).")
-                 return
-
-            # --- HANDLE RESPONSE ---
-            print(f"📄 Raw Response: {response}")
-
-            # If response is a string, convert to JSON
-            if isinstance(response, str):
-                try:
-                    data = json.loads(response)
-                except:
-                    messagebox.showerror("API Error", f"Invalid Response:\n{response}")
-                    return
-            else:
-                # If it's a Requests object
-                try:
-                    data = response.json()
-                except:
-                    data = response 
-
-            # Check Artemis Result Code
-            if data.get("code") == "0":
-                messagebox.showinfo("Success", f"Person Added Successfully!\nID: {payload['personCode']}")
-                if on_success_callback:
-                    on_success_callback()
-            else:
-                messagebox.showerror("API Error", f"Failed to add person.\nError: {data.get('msg')}\nCode: {data.get('code')}")
-
-        except Exception as e:
-            print("❌ API Exception:", e)
-            messagebox.showerror("Connection Error", f"Could not connect to API.\n{e}")
-
     # --- SAVE ACTION ---
     def on_save():
-        # 1. Validation
         if not vars["first_name"].get():
             messagebox.showwarning("Required", "First Name is required!")
             return
 
-        # 2. Get Dates
-        b_date = begin_date_ent.get_date()
-        e_date = end_date_ent.get_date()
+        fmt_begin = f"{b_ent.get_date().strftime('%Y-%m-%d')}T15:00:00+08:00"
+        fmt_end = f"{e_ent.get_date().strftime('%Y-%m-%d')}T15:00:00+08:00"
         
-        fmt_begin = f"{b_date.strftime('%Y-%m-%d')}T15:00:00+08:00" 
-        fmt_end   = f"{e_date.strftime('%Y-%m-%d')}T15:00:00+08:00"
-
-        # 3. Construct Payload
-        try:
-            gender_val = int(vars["gender"].get().split(" ")[0])
-        except:
-            gender_val = 1 
+        try: gender_val = int(vars["gender"].get().split(" ")[0])
+        except: gender_val = 1 
 
         payload = {
             "personCode": vars["id"].get(),
@@ -248,9 +133,30 @@ def show_create_form(parent_frame, on_success_callback=None):
             "endTime": fmt_end
         }
 
-        # 4. Call API
-        save_to_api(payload)
+        # --- ROUTING LOGIC (ADD vs EDIT) ---
+        if is_edit:
+            # Call the new Edit File
+            success = person_edit.update_person_api(payload)
+            if success:
+                messagebox.showinfo("Success", "Person Updated Successfully!")
+                if on_success_callback: on_success_callback()
+        else:
+            # Call Add API directly (Existing Logic)
+            if hasattr(common_signature_api, 'call_api'):
+                 response = common_signature_api.call_api(ADD_API_PATH, payload)
+            elif hasattr(common_signature_api, 'send_to_api'):
+                 response = common_signature_api.send_to_api(ADD_API_PATH, payload)
+            else:
+                 response = None
+            
+            # Simple Success Check for Add
+            if response and "code" in str(response) and "'0'" in str(response):
+                 messagebox.showinfo("Success", "Person Added Successfully!")
+                 if on_success_callback: on_success_callback()
+            else:
+                 # Better to parse JSON properly in production, keeping it simple here
+                 messagebox.showinfo("Result", f"API Response: {response}")
+                 if on_success_callback: on_success_callback()
 
-    # Save Button
-    tk.Button(form_frame, text="Save to API", bg="#28a745", fg="white", font=("Segoe UI", 10, "bold"), 
-              padx=20, pady=5, command=on_save).grid(row=row_idx, column=1, sticky="e", pady=20)
+    tk.Button(form_frame, text=btn_txt, bg=btn_color, fg="black" if is_edit else "white", 
+              font=("Segoe UI", 10, "bold"), padx=20, pady=5, command=on_save).grid(row=row_idx, column=1, sticky="e", pady=20)
