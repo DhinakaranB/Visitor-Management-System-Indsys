@@ -14,7 +14,7 @@ except ImportError:
 ADD_VEHICLE_API = "/artemis/api/resource/v1/vehicle/single/add"
 UPDATE_VEHICLE_API = "/artemis/api/resource/v1/vehicle/single/update"
 
-# We will try both endpoints to be safe
+# Query endpoints
 QUERY_PERSON_SINGLE = "/artemis/api/resource/v1/person/single/query"
 QUERY_PERSON_LIST = "/artemis/api/resource/v1/person/personList"
 
@@ -55,7 +55,7 @@ def fetch_person_details(person_code, vars_dict):
 
     print(f"🔍 Searching for Person Code: {person_code}")
     
-    # METHOD 1: Try Single Query (Best for exact code match)
+    # METHOD 1: Try Single Query
     payload_1 = {"personCode": person_code}
     data = call_api(QUERY_PERSON_SINGLE, payload_1)
     
@@ -64,19 +64,16 @@ def fetch_person_details(person_code, vars_dict):
     if data and data.get("code") == "0":
         found_data = data.get("data")
     else:
-        # METHOD 2: If Method 1 fails, try searching the List (Pagination style)
+        # METHOD 2: Try List Search
         print("⚠️ Single query failed, trying List Search...")
         payload_2 = {
             "pageNo": 1, 
             "pageSize": 20, 
-            "personName": person_code # Sometimes code works in name field search
+            "personName": person_code 
         }
-        # Note: Artemis sometimes doesn't allow searching list by code directly, 
-        # but let's try just in case.
         data2 = call_api(QUERY_PERSON_LIST, payload_2)
         if data2 and data2.get("code") == "0":
             rows = data2.get("data", {}).get("list", [])
-            # Manually find the exact code match
             for p in rows:
                 if p.get("personCode") == person_code:
                     found_data = p
@@ -84,7 +81,6 @@ def fetch_person_details(person_code, vars_dict):
 
     # --- PROCESS RESULT ---
     if found_data:
-        # Fill Variables
         pid = found_data.get("personId", "")
         fname = found_data.get("personGivenName", "") or found_data.get("personName", "")
         lname = found_data.get("personFamilyName", "")
@@ -97,7 +93,7 @@ def fetch_person_details(person_code, vars_dict):
         
         messagebox.showinfo("Found", f"Person Found:\nName: {fname} {lname}\nID: {pid}")
     else:
-        messagebox.showerror("Not Found", f"Could not find person with code: {person_code}\n\nTroubleshooting:\n1. Check if person exists in 'Person List'.\n2. Check exact spelling/casing.")
+        messagebox.showerror("Not Found", f"Could not find person with code: {person_code}")
 
 def show_vehicle_form(parent_frame, on_success_callback=None, edit_data=None):
     for widget in parent_frame.winfo_children(): widget.destroy()
@@ -122,6 +118,9 @@ def show_vehicle_form(parent_frame, on_success_callback=None, edit_data=None):
         "area": tk.StringVar(value=edit_data.get("plateArea", "TN") if is_edit else "TN"),
         "color": tk.StringVar(value="3 - Gray"), 
         
+        # NEW: Vehicle Group Index (Required by your API)
+        "group_index": tk.StringVar(value=edit_data.get("vehicleGroupIndexCode", "1") if is_edit else "1"),
+
         "search_code": tk.StringVar(), 
         "person_id": tk.StringVar(value=edit_data.get("personId", "") if is_edit else ""),
         "first_name": tk.StringVar(value=edit_data.get("personGivenName", "") if is_edit else ""),
@@ -150,6 +149,9 @@ def show_vehicle_form(parent_frame, on_success_callback=None, edit_data=None):
     add_row("Plate Category:", vars["category"])
     add_row("Plate Area:", vars["area"])
     
+    # NEW: Group Index Field
+    add_row("Vehicle Group Index:", vars["group_index"])
+
     tk.Label(form, text="Color:", bg="white", font=("Segoe UI", 10, "bold"), fg="#555").grid(row=row_idx, column=0, sticky="w", pady=10)
     ttk.Combobox(form, textvariable=vars["color"], values=COLOR_OPTIONS, width=38, state="readonly").grid(row=row_idx, column=1, pady=5, padx=20, sticky="w")
     row_idx += 1
@@ -185,7 +187,6 @@ def show_vehicle_form(parent_frame, on_success_callback=None, edit_data=None):
     eff_date = create_date("Effective Date:", edit_data.get("effectiveDate") if is_edit else None)
     exp_date = create_date("Expired Date:", edit_data.get("expiredDate") if is_edit else None)
 
-    # Set default expiry +10 years if new
     if not is_edit:
         try: exp_date.set_date(datetime.now().replace(year=datetime.now().year + 10))
         except: pass
@@ -202,12 +203,16 @@ def show_vehicle_form(parent_frame, on_success_callback=None, edit_data=None):
         fmt_eff = f"{eff_date.get_date().strftime('%Y-%m-%d')}T15:00:00+08:00"
         fmt_exp = f"{exp_date.get_date().strftime('%Y-%m-%d')}T15:00:00+08:00"
 
+        # Construct Payload with New Group Code
         payload = {
             "plateNo": vars["plate"].get(),
             "plateCategory": vars["category"].get(),
             "plateArea": vars["area"].get(),
             "vehicleColor": color_val,
-            "vehicleGroupIndexCode": "1", 
+            
+            # --- FIXED: Use the variable from input ---
+            "vehicleGroupIndexCode": vars["group_index"].get(), 
+            
             "personId": vars["person_id"].get(),
             "personGivenName": vars["first_name"].get(),
             "personFamilyName": vars["last_name"].get(),
