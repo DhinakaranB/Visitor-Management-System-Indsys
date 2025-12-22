@@ -21,10 +21,13 @@ try:
     from src.Api.Homepage.home_screen import load_home_screen
     from src.Api.visitor_screen.visitor_group import show_visitor_group_screen 
     from src.Api.Homepage import common_header
+    from src.Api.visitor_screen import VisitorRegisterDetails as visitorRegisterDetails
+    from src.Api.visitor_screen import VisitorQRconfig as visitorQRconfig
 
 
-    from src.Api import person_form 
-    from src.Api import person_list
+    # Import the FILE (module), not something inside it
+    from src.Api.person_screen import person_form
+    from src.Api.person_screen import person_list  
 except Exception as e:
     print("Import Error:", e)
 
@@ -62,7 +65,7 @@ except Exception as e:
     def load_home_screen(*args, **kwargs): print("Mock: load_home_screen")
 
 def show_add_person():
-    print("Opening Add Person Screen...")
+    print("Opening Add Person Screen...")   
     # Pass 'show_person_list' so after saving, it goes to the list automatically
     person_form.show_create_form(content_frame, on_success_callback=show_person_list)
 
