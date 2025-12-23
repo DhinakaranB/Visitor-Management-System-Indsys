@@ -10,17 +10,23 @@ BG_COLOR = "#F4F6F7"
 CARD_BG = "#FFFFFF"         
 TEXT_COLOR = "#2C3E50"      
 PRIMARY_COLOR = "#3498DB"   
-WARNING_COLOR = "#E67E22"   # Orange (Check Out Button)
-SUCCESS_COLOR = "#27AE60"   # Green (Status Text) <--- ADDED BACK
+WARNING_COLOR = "#E67E22"   # Orange (Check Out)
+SUCCESS_COLOR = "#27AE60"   # Green (Status)
 LABEL_COLOR = "#7F8C8D"     
 
 # === API ENDPOINTS ===
-API_SEARCH_PATH = "/artemis/api/visitor/v1/visitor/queryVisitorList"
-API_CHECKOUT_PATH = "/artemis/api/visitor/v1/visitor/checkOut" 
-# Fallback if needed: "/artemis/api/visitor/v1/visitor/out"
+# 1. To display the photo & details immediately
+API_SINGLE_INFO = "/artemis/api/visitor/v1/visitor/single/visitorinfo"
+
+# 2. To find the 'appointRecordId' needed for checkout
+API_LIST_SEARCH = "/artemis/api/visitor/v1/visitor/queryVisitorList"
+
+# 3. The CORRECT Checkout API for your version
+# Use '/out' instead of '/checkOut' to fix the "Product version" error
+API_CHECKOUT_PATH = "/artemis/api/visitor/v1/visitor/out" 
 
 # Global references
-current_visitor_data = None
+current_visitor_data = {}
 ui_elements = {}
 
 # ==========================================
@@ -28,7 +34,11 @@ ui_elements = {}
 # ==========================================
 
 def handle_search(search_term, root_instance):
-    """ Searches for the visitor to get their record ID """
+    """ 
+    Two-Step Search:
+    1. Get Details (Visuals) -> Sync
+    2. Get AppointRecordID (Background) -> Sync
+    """
     global current_visitor_data
     
     if not search_term:
@@ -36,93 +46,114 @@ def handle_search(search_term, root_instance):
         return
 
     # Clear UI
-    current_visitor_data = None
+    current_visitor_data = {} 
     reset_ui_fields()
     ui_elements["status_lbl"].config(text="SEARCHING...", fg=PRIMARY_COLOR)
-
-    # Payload: Map input to 'visitorName' (standard Artemis search)
-    search_payload = {
-        "pageNo": 1,
-        "pageSize": 10,
-        "visitorName": search_term 
-    }
-
-    def on_search_success(response):
-        if not response or "data" not in response:
-            ui_elements["status_lbl"].config(text="API ERROR", fg="red")
-            return
-            
-        if not response["data"] or not response["data"].get("list"):
-            # Optional: Add logic here to search by 'certNo' if name fails
-            messagebox.showinfo("Not Found", f"No visitor found with ID/Name: {search_term}")
-            ui_elements["status_lbl"].config(text="NOT FOUND", fg="red")
-            return
-
-        # Bind the first result
-        visitor_record = response["data"]["list"][0]
-        populate_ui(visitor_record)
-
-    api_handler.send_to_api(search_payload, API_SEARCH_PATH, on_search_success)
-
-
-def populate_ui(data):
-    """ Binds data to UI and enables Checkout """
-    global current_visitor_data
-    current_visitor_data = data
     
-    # 1. Bind Texts
-    ui_elements["name_lbl"].config(text=data.get("visitorName", "--"))
-    ui_elements["comp_lbl"].config(text=data.get("companyName", "--"))
-    ui_elements["phone_lbl"].config(text=data.get("phoneNo", "--"))
-    ui_elements["plate_lbl"].config(text=data.get("plateNo", "--"))
+    # Force UI update
+    root_instance.update()
+
+    # --- STEP 1: Get Details (Visuals) ---
+    search_payload = { "visitorId": search_term }
+    
+    # Call API
+    response = api_handler.call_api(API_SINGLE_INFO, search_payload)
+
+    # Validate Response
+    if not response or "data" not in response:
+        ui_elements["status_lbl"].config(text="NOT FOUND", fg="red")
+        return
+
+    data_block = response.get("data", {})
+    if not data_block or "VisitorInfo" not in data_block:
+        messagebox.showinfo("Not Found", f"No details found for ID: {search_term}")
+        ui_elements["status_lbl"].config(text="NOT FOUND", fg="red")
+        return
+
+    # Success! Bind Visuals
+    visitor_record = data_block["VisitorInfo"]
+    populate_ui_visuals(visitor_record)
+    current_visitor_data.update(visitor_record)
+    
+    # --- STEP 2: Fetch Appointment ID (Crucial for Checkout) ---
+    # We use the name to find the 'appointRecordId'
+    visitor_name = visitor_record.get("visitorFullName") or visitor_record.get("visitorGivenName")
+    
+    if visitor_name:
+        fetch_appointment_id(visitor_name, search_term)
+    else:
+        print("Warning: No visitor name found, cannot fetch Appointment ID.")
+
+def fetch_appointment_id(visitor_name, original_visitor_id):
+    """ Calls list API to find 'appointRecordId' corresponding to the Visitor ID """
+    payload = { "pageNo": 1, "pageSize": 50, "visitorName": visitor_name }
+    
+    response = api_handler.call_api(API_LIST_SEARCH, payload)
+    
+    if response and "data" in response and response["data"] and response["data"].get("list"):
+        for record in response["data"]["list"]:
+            # Match IDs
+            if str(record.get("visitorId")) == str(original_visitor_id):
+                # Found the record! Get the ID needed for checkout
+                appoint_id = record.get("appointRecordId") or record.get("orderId")
+                if appoint_id:
+                    current_visitor_data["appointRecordId"] = appoint_id
+                    print(f"DEBUG: Found Appointment ID: {appoint_id}")
+                    enable_checkout_button()
+                return
+    
+    print("DEBUG: Could not resolve Appointment ID from list.")
+
+def populate_ui_visuals(data):
+    """ Updates UI Labels """
+    name = data.get("visitorFullName") or data.get("visitorGivenName") or "--"
+    company = data.get("companyName", "--")
+    phone = data.get("phoneNo", "--")
+    plate = data.get("plateNo", "--")
     
     gender_map = {1: "Male", 2: "Female", 0: "Unknown"}
     gender = gender_map.get(data.get("gender", 0), "Unknown")
+    
+    ui_elements["name_lbl"].config(text=name)
+    ui_elements["comp_lbl"].config(text=company)
+    ui_elements["phone_lbl"].config(text=phone)
+    ui_elements["plate_lbl"].config(text=plate)
     ui_elements["purpose_lbl"].config(text=gender)
 
-    # 2. Update Status (Now SUCCESS_COLOR is defined!)
+    ui_elements["status_lbl"].config(text="VISITOR FOUND", fg=PRIMARY_COLOR)
+
+def enable_checkout_button():
     ui_elements["status_lbl"].config(text="READY TO CHECK OUT", fg=SUCCESS_COLOR)
-    
-    # 3. Enable Checkout Button
     ui_elements["btn_out"].config(state="normal", bg=WARNING_COLOR, text="CONFIRM CHECK OUT ➜")
 
-
 def perform_checkout():
-    """ Execute Checkout """
-    if not current_visitor_data:
-        return
-
-    # 1. Get Appointment Record ID
-    record_id = current_visitor_data.get("appointRecordId") or current_visitor_data.get("orderId")
-
+    """ Execute Checkout using appointRecordId """
+    # 1. Get the ID we found in Step 2
+    record_id = current_visitor_data.get("appointRecordId")
+    
     if not record_id:
-        messagebox.showerror("Data Error", "Record ID (appointRecordId) missing. Cannot check out.")
+        messagebox.showerror("Error", "Could not find 'appointRecordId'.\nCheckout cannot proceed without it.")
         return
 
-    # 2. Payload
-    payload = {
-        "appointRecordId": record_id
-    }
+    # 2. Prepare Payload
+    payload = { "appointRecordId": record_id }
 
-    # 3. API Call
-    def on_success(response):
-        if response.get("code") == "0":
-            messagebox.showinfo("Success", "Visitor Checked Out Successfully!")
-            ui_elements["status_lbl"].config(text="CHECKED OUT", fg="red")
-            ui_elements["btn_out"].config(state="disabled", bg="#bdc3c7", text="CHECKED OUT")
-        else:
-            messagebox.showerror("Checkout Failed", f"Error: {response.get('msg')}")
+    # 3. Call API
+    response = api_handler.call_api(API_CHECKOUT_PATH, payload)
 
-    api_handler.send_to_api(payload, API_CHECKOUT_PATH, on_success)
-
+    if response and response.get("code") == "0":
+        messagebox.showinfo("Success", "Visitor Checked Out Successfully!")
+        ui_elements["status_lbl"].config(text="CHECKED OUT", fg="red")
+        ui_elements["btn_out"].config(state="disabled", bg="#bdc3c7", text="CHECKED OUT")
+    else:
+        msg = response.get('msg') if response else "Unknown Error"
+        messagebox.showerror("Checkout Failed", f"Error: {msg}")
 
 def reset_ui_fields():
     for key in ["name_lbl", "comp_lbl", "phone_lbl", "plate_lbl", "purpose_lbl"]:
         if key in ui_elements:
             ui_elements[key].config(text="--")
-    
     ui_elements["btn_out"].config(state="disabled", bg="#bdc3c7", text="CHECK OUT ➜")
-
 
 # ==========================================
 # 3. UI LAYOUT
@@ -166,7 +197,7 @@ def show_checkin_screen(root_instance, show_main_screen_callback):
     search_card = tk.Frame(main_container, bg=CARD_BG, padx=30, pady=20)
     search_card.pack(fill="x", pady=(0, 20))
 
-    tk.Label(search_card, text="ENTER VISITOR ID / NAME", font=("Segoe UI", 8, "bold"), bg=CARD_BG, fg=LABEL_COLOR).pack(anchor="w")
+    tk.Label(search_card, text="ENTER VISITOR ID", font=("Segoe UI", 8, "bold"), bg=CARD_BG, fg=LABEL_COLOR).pack(anchor="w")
     
     search_row = tk.Frame(search_card, bg=CARD_BG)
     search_row.pack(fill="x", pady=(5, 0))
@@ -215,7 +246,7 @@ def show_checkin_screen(root_instance, show_main_screen_callback):
     add_detail_row(2, "PHONE NO", "phone_lbl", "VEHICLE PLATE", "plate_lbl")
     add_detail_row(4, "GENDER", "purpose_lbl", "", "dummy") 
 
-    # Action Button (Checkout Only)
+    # Action Button
     btn_area = tk.Frame(details_card, bg=CARD_BG)
     btn_area.pack(fill="x", pady=(30, 0))
 
