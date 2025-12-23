@@ -21,6 +21,7 @@ try:
     from src.Api.Homepage.home_screen import load_home_screen
     from src.Api.visitor_screen.visitor_group import show_visitor_group_screen 
     from src.Api.Homepage import common_header
+    import src.Api.visitor_screen.visitor_checkin as visitor_checkin  
     
     # Vehicle
     from src.Api.vehicle_screen import vehicle_form
@@ -135,6 +136,10 @@ def show_visitor_QR():
     clear_content()
     visitorQRconfig.render_qr_config(content_frame)
 
+def show_visitor_checkstatus():
+    clear_content()
+    visitor_checkin.show_checkin_screen(root, show_home)
+
 def show_door_list():
     door_list.show_door_list(content_frame)
 
@@ -206,6 +211,7 @@ def open_visitor_dropdown(widget):
     item("Visitor Groups", show_visitor_groups)
     item("Visitor Register Details", show_visitor_register)
     item("Visitor QR Config", show_visitor_QR)
+    item("Visitor Check-In / Check-Out", show_visitor_checkstatus)
 
     menu.bind("<FocusOut>", lambda e: menu.destroy())
     menu.focus_force()
