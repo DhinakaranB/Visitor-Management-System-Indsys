@@ -35,6 +35,8 @@ try:
     # Visitor Extras
     from src.Api.visitor_screen import VisitorRegisterDetails as visitorRegisterDetails
     from src.Api.visitor_screen import VisitorQRconfig as visitorQRconfig
+
+    import src.Api.visitor_screen.visitor_appointment as visitor_appointment
     
     print("✅ Core modules imported successfully")
 
