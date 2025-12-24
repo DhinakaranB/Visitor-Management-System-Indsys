@@ -122,7 +122,8 @@ def show_home():
     load_home_screen(content_frame)     
 
 def show_add_visitor():
-    visitor_form.show_create_form(content_frame, show_home, close_application)
+    # Pass the show_home callback correctly
+    visitor_form.show_register_screen(content_frame, show_home)
 
 def show_single_visitor_list_external():
     visitor_list.show_single_visitor_list(content_frame)
@@ -140,7 +141,8 @@ def show_visitor_QR():
 
 def show_visitor_checkstatus():
     clear_content()
-    visitor_checkin.show_checkin_screen(root, show_home)
+    # ✅ FIX: Passing content_frame instead of root
+    visitor_checkin.show_checkin_screen(content_frame, show_home)
 
 def show_door_list():
     door_list.show_door_list(content_frame)
@@ -162,7 +164,7 @@ def open_door_dropdown(widget):
     x = widget.winfo_rootx()
     y = widget.winfo_rooty() + widget.winfo_height()
     
-    # Dynamic height calculation based on available items
+    # Dynamic height calculation
     menu_height = 80
     if region_list: menu_height += 35
     if org_creation: menu_height += 35
@@ -177,11 +179,9 @@ def open_door_dropdown(widget):
         lbl.bind("<Leave>", lambda e: lbl.config(bg="white"))
         lbl.bind("<Button-1>", lambda e: (menu.destroy(), cmd()))
 
-    # Core Items
     item("🚪 Door List", show_door_list)
     item("🔗 Linked Doors", show_linked_doors)
     
-    # Safe Items (Only show if files exist)
     if region_list:
         item("📋 Region/Area List", lambda: region_list.show_region_list(content_frame))
     
@@ -245,7 +245,6 @@ def open_vehicle_dropdown(widget):
     menu.config(bg="white")
     x = widget.winfo_rootx()
     y = widget.winfo_rooty() + widget.winfo_height()
-    # Need taller height for 8 items
     menu.geometry(f"250x320+{x}+{y}") 
 
     def item(txt, cmd):
@@ -255,21 +254,13 @@ def open_vehicle_dropdown(widget):
         lbl.bind("<Leave>", lambda e: lbl.config(bg="white"))
         lbl.bind("<Button-1>", lambda e: (menu.destroy(), cmd()))
 
-    # 1. Add Vehicle
     item("Add Vehicle", lambda: vehicle_form.show_vehicle_form(content_frame, lambda: vehicle_list.show_list(content_frame)))
-    # 2. Vehicle List
     item("Vehicle List", lambda: vehicle_list.show_list(content_frame))
-    # 3. Parking List
     item("Vehicle Parking List", lambda: vehicle_screen.show_parking_list(content_frame))
-    # 4. Floor List
     item("Floor List", lambda: vehicle_screen.show_floor_list(content_frame))
-    # 5. Floor Overview
     item("Floor Overview", lambda: vehicle_screen.show_floor_overview(content_frame))
-    # 6. Passageway Record
     item("Parkinglot Passageway Record", lambda: vehicle_screen.show_passageway_record(content_frame))
-    # 7. Fee Calculation
     item("Parking Fee Calculation", lambda: vehicle_screen.show_fee_calc(content_frame))
-    # 8. Fees Confirm
     item("Parking Fees Confirm", lambda: vehicle_screen.show_fee_confirm(content_frame))
 
     menu.bind("<FocusOut>", lambda e: menu.destroy())
@@ -312,10 +303,8 @@ def init_ui():
         root.geometry("1100x750")
         root.configure(bg=BG_COLOR)
 
-        # 1. Setup Navbar & Content Area
         setup_navbar()
 
-        # 2. Add Footer
         footer = tk.Label(root, text="© 2025 Indsys Holdings - All rights reserved.", font=("Segoe UI",9), bg=BG_COLOR, fg="#777")
         footer.pack(side="bottom", pady=8)
 
