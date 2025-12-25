@@ -12,16 +12,16 @@ except ImportError:
 
 # --- API ENDPOINTS ---
 API_VISITOR_INFO = "/artemis/api/visitor/v1/visitor/visitorInfo"
-API_APPOINTMENT = "/artemis/api/visitor/v1/appointment/queryAppointmentList"
+API_APPOINTMENT_LIST = "/artemis/api/visitor/v1/appointment/appointmentlist"
 
 # --- COLORS ---
-BG_MAIN = "#F3F4F6"      
-BG_CARD = "#FFFFFF"      
-TEXT_PRI = "#111827"     
-TEXT_SEC = "#6B7280"     
-COLOR_TOTAL = "#3B82F6" 
-COLOR_IN = "#10B981"    
-COLOR_OUT = "#6B7280"   
+BG_MAIN = "#F8F9FA"       
+BG_CARD = "#FFFFFF"       
+TEXT_PRI = "#111827"      
+TEXT_SEC = "#6B7280"      
+HEADER_BG = "#F3F4F6"     
+BORDER_COLOR = "#E5E7EB"  
+DARK_BLUE_TEXT = "#0B2F64" 
 
 def call_api(url, payload):
     if not common_signature_api: return None
@@ -43,137 +43,86 @@ def fetch_dashboard_data(vars_dict, tree):
     start_time = "2020-01-01T00:00:00+05:30"
     end_time = "2030-12-31T23:59:59+05:30"
 
-    print(f"\n🔹 --- DASHBOARD REFRESH ---")
-
-    # --- 1. Fetch Visitor Info ---
-    payload_info = {"pageNo": 1, "pageSize": 100}
+    # --- 1. Fetch Visitor Info (Source for TOTAL COUNT & In/Out Status) ---
+    # We fetch this to get the correct "Total Visitors" number from the DB
+    payload_info = {"pageNo": 1, "pageSize": 500}
     data_info = call_api(API_VISITOR_INFO, payload_info)
     if isinstance(data_info, str): 
         try: data_info = json.loads(data_info)
         except: pass
 
-    # --- 2. Fetch Appointments ---
+    # --- 2. Fetch Appointments (Source for GRID Data) ---
     payload_app = {
-        "pageNo": 1, "pageSize": 100,
-        "startTime": start_time, "endTime": end_time
+        "pageNo": 1,
+        "pageSize": 500,
+        "appointStartTime": start_time,
+        "appointEndTime": end_time
     }
-    data_app = call_api(API_APPOINTMENT, payload_app)
+    data_app = call_api(API_APPOINTMENT_LIST, payload_app)
     if isinstance(data_app, str): 
         try: data_app = json.loads(data_app)
         except: pass
 
-    # --- MERGE & DEDUPLICATE ---
-    combined_rows = []
-    seen_unique_keys = set() # To track duplicates (ID or Plate)
-    
+    # --- PROCESS STATS (From Visitor Info) ---
+    real_total_visitors = 0
     in_count = 0
     out_count = 0
-    total_val = 0
-
-    # Helper function to extract data safely
-    def process_record(r, source_type):
-        # 1. FLATTEN DATA: Get fields whether they are at root or in 'visitorBaseInfo'
-        base = r.get("visitorBaseInfo", {})
-        
-        # 2. NAME FIX: Check ALL possible name fields
-        name = (r.get("visitorFullName") or 
-                r.get("visitorName") or 
-                base.get("visitorName") or 
-                (r.get("visitorGivenName", "") + " " + r.get("visitorFamilyName", "")).strip())
-        
-        if not name or name == " ": name = "Unknown"
-
-        # 3. ID / Plate (Used for Deduplication)
-        vid = str(r.get("visitorId") or base.get("visitorId") or "")
-        plate = str(r.get("plateNo") or base.get("plateNo") or "-")
-        
-        # 4. COMPANY FIX
-        org = r.get("companyName") or r.get("visitorWorkUnit") or base.get("companyNam") or "-"
-
-        # 5. TIME FIX
-        # Appointments use 'appointStartTime'. Info uses 'checkInTime' or 'visitStartTime'
-        t_raw = (r.get("checkInTime") or 
-                 r.get("visitStartTime") or 
-                 r.get("appointStartTime") or 
-                 r.get("startTime") or 
-                 r.get("registerTime") or "")
-        
-        # Clean Time
-        t_display = t_raw.replace("T", " ")[:16] # YYYY-MM-DD HH:MM
-
-        # 6. STATUS LOGIC
-        status_raw = str(r.get("status", r.get("visitorStatus", "0")))
-        
-        if source_type == "APP":
-             status_txt = "Registered"
-        else:
-            if status_raw == "2" or r.get("checkOutTime"):
-                status_txt = "Checked Out"
-            elif status_raw == "1" or r.get("checkInTime"):
-                status_txt = "Checked In"
-            else:
-                status_txt = "Registered"
-
-        return {
-            "id": vid,
-            "plate": plate,
-            "sort_key": t_raw if t_raw else "0000", # Sort by real ISO time string
-            "values": (name, org, plate, t_display, status_txt)
-        }
-
-    # --- EXTRACT ROWS ---
     
-    # List 1: Visitor Info (The main list)
     if data_info and data_info.get("code") == "0":
         data_block = data_info.get("data", {})
-        total_val = data_block.get("total", 0)
+        # FIX: Get the Total from the API metadata, not just the list length
+        real_total_visitors = data_block.get("total", 0)
         
-        # KEY FIX: Check 'VisitorInfo' key as seen in your screenshot
-        rows = data_block.get("VisitorInfo") or data_block.get("list", [])
-        
+        # Calculate In/Out from the list
+        rows = data_block.get("VisitorInfo") or []
         for r in rows:
-            item = process_record(r, "INFO")
-            
-            # Count In/Out
-            if item["values"][4] == "Checked In": in_count += 1
-            if item["values"][4] == "Checked Out": out_count += 1
-            
-            combined_rows.append(item)
-            
-            # Mark ID/Plate as seen
-            if item["id"]: seen_unique_keys.add(item["id"])
-            if item["plate"] != "-": seen_unique_keys.add(item["plate"])
+            status = str(r.get("status", "0"))
+            if status == "1": in_count += 1
+            elif status == "2": out_count += 1
 
-    # List 2: Appointments
+    # --- PROCESS GRID (From Appointment List) ---
+    grid_rows = []
+    
     if data_app and data_app.get("code") == "0":
-        rows = data_app.get("data", {}).get("list", [])
+        app_list = data_app.get("data", {}).get("list", [])
         
-        for r in rows:
-            item = process_record(r, "APP")
+        for r in app_list:
+            # EXTRACT DATA
+            v_info = r.get("visitorInfo", {})
             
-            # DEDUPLICATION LOGIC:
-            # Only add appointment if we haven't seen this ID or Plate in the main list
-            is_duplicate = False
+            # ID (Prefer ID from Visitor Info inside Appointment)
+            vid = str(v_info.get("visitorId") or "")
             
-            if item["id"] and item["id"] in seen_unique_keys: is_duplicate = True
-            # Optional: Strict Plate Check (Uncomment if you want 1 record per car)
-            # if item["plate"] != "-" and item["plate"] in seen_unique_keys: is_duplicate = True 
-            
-            if not is_duplicate:
-                combined_rows.append(item)
+            # Name
+            name = v_info.get("visitorGivenName", "")
+            if not name: name = v_info.get("visitorName", "Unknown")
 
-    # --- SORTING & CLEANUP ---
-    # Sort Newest First
-    combined_rows.sort(key=lambda x: x["sort_key"], reverse=True)
-    
-    # If the API returned a Total count, use it. Otherwise count rows.
-    final_total = total_val if total_val > 0 else len(combined_rows)
-    
-    # Final List for Table
-    final_display_list = [item["values"] for item in combined_rows]
+            # Reason
+            reason = str(r.get("visitorReasonName", "--"))
+            
+            # Receptionist
+            receptionist = str(r.get("receptionistName", "Admin"))
+            
+            # Times
+            t_start_raw = r.get("appointStartTime", "")
+            t_end_raw = r.get("appointEndTime", "")
+            
+            t_start = t_start_raw.replace("T", " ")[:16] if t_start_raw else "--"
+            t_end = t_end_raw.replace("T", " ")[:16] if t_end_raw else "--"
+
+            # Create Row
+            grid_rows.append({
+                "sort_key": t_start_raw,
+                "values": (vid, name, reason, receptionist, t_start, t_end)
+            })
+
+    # Sort & Finalize Grid
+    grid_rows.sort(key=lambda x: x["sort_key"], reverse=True)
+    final_display_list = [x["values"] for x in grid_rows]
 
     # --- UPDATE UI ---
-    vars_dict['total'].set(str(final_total))
+    # FIX: Use 'real_total_visitors' for the card, NOT len(final_display_list)
+    vars_dict['total'].set(str(real_total_visitors))
     vars_dict['in'].set(str(in_count))
     vars_dict['out'].set(str(out_count))
     vars_dict['time'].set(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
@@ -183,19 +132,24 @@ def fetch_dashboard_data(vars_dict, tree):
 def update_table(tree, rows):
     for item in tree.get_children():
         tree.delete(item)
-    for row in rows:
-        tree.insert("", "end", values=row)
+    
+    for i, row in enumerate(rows):
+        tag = "even" if i % 2 == 0 else "odd"
+        tree.insert("", "end", values=row, tags=(tag,))
 
 def create_stat_card(parent, title, var, icon_char, color):
     card = tk.Frame(parent, bg=BG_CARD, highlightbackground="#E5E7EB", highlightthickness=1)
     card.pack(side="left", fill="both", expand=True, padx=10, pady=5)
-    inner = tk.Frame(card, bg=BG_CARD, padx=20, pady=20)
+    
+    inner = tk.Frame(card, bg=BG_CARD, padx=24, pady=24)
     inner.pack(fill="both", expand=True)
+    
     top = tk.Frame(inner, bg=BG_CARD)
     top.pack(fill="x")
-    tk.Label(top, text=title, font=("Segoe UI", 10, "bold"), fg=TEXT_SEC, bg=BG_CARD).pack(side="left")
-    tk.Label(top, text=icon_char, font=("Segoe UI", 14), fg=color, bg=BG_CARD).pack(side="right")
-    tk.Label(inner, textvariable=var, font=("Segoe UI", 32, "bold"), fg=TEXT_PRI, bg=BG_CARD).pack(anchor="w", pady=(5,0))
+    tk.Label(top, text=title.upper(), font=("Segoe UI", 9, "bold"), fg=TEXT_SEC, bg=BG_CARD).pack(side="left")
+    tk.Label(top, text=icon_char, font=("Segoe UI", 16), fg=color, bg=BG_CARD).pack(side="right")
+    
+    tk.Label(inner, textvariable=var, font=("Segoe UI", 36, "bold"), fg=TEXT_PRI, bg=BG_CARD).pack(anchor="w", pady=(8,0))
 
 def load_home_screen(parent_frame):
     for w in parent_frame.winfo_children(): w.destroy()
@@ -208,54 +162,85 @@ def load_home_screen(parent_frame):
         "time": tk.StringVar(value="Loading...") 
     }
 
-    # Header
-    header = tk.Frame(parent_frame, bg=BG_MAIN, pady=25, padx=30)
+    # --- HEADER ---
+    header = tk.Frame(parent_frame, bg=BG_MAIN, pady=30, padx=40)
     header.pack(fill="x")
-    tk.Label(header, text="Dashboard Overview", font=("Segoe UI", 24, "bold"), fg=TEXT_PRI, bg=BG_MAIN).pack(side="left")
+    
+    tk.Label(header, text="Dashboard Overview", font=("Segoe UI", 28, "bold"), fg=DARK_BLUE_TEXT, bg=BG_MAIN).pack(side="left")
     
     right = tk.Frame(header, bg=BG_MAIN)
     right.pack(side="right")
-    tk.Label(right, textvariable=stats['time'], font=("Segoe UI", 9), fg=TEXT_SEC, bg=BG_MAIN).pack(side="right", padx=10)
-    tk.Button(right, text="🔄 Refresh", bg="#2563EB", fg="white", bd=0, padx=15, pady=6, font=("Segoe UI", 9, "bold"),
-              command=lambda: threading.Thread(target=fetch_dashboard_data, args=(stats, table), daemon=True).start()).pack(side="right")
+    tk.Label(right, textvariable=stats['time'], font=("Segoe UI", 10), fg=TEXT_SEC, bg=BG_MAIN).pack(side="right", padx=15)
+    
+    tk.Button(right, text=" ⟳ Refresh ", bg="#2563EB", fg="white", bd=0, padx=25, pady=8, 
+              font=("Segoe UI", 10, "bold"), cursor="hand2", activebackground="#1E40AF", activeforeground="white",
+              command=lambda: threading.Thread(target=fetch_dashboard_data, args=(stats, table), daemon=True).start()
+    ).pack(side="right")
 
-    # Cards
-    stats_frame = tk.Frame(parent_frame, bg=BG_MAIN, padx=20)
-    stats_frame.pack(fill="x", pady=(0, 20))
-    create_stat_card(stats_frame, "TOTAL VISITORS", stats['total'], "👥", COLOR_TOTAL)
-    create_stat_card(stats_frame, "CHECKED IN", stats['in'], "📥", COLOR_IN)
-    create_stat_card(stats_frame, "CHECKED OUT", stats['out'], "📤", COLOR_OUT)
+    # --- STAT CARDS ---
+    stats_frame = tk.Frame(parent_frame, bg=BG_MAIN, padx=30)
+    stats_frame.pack(fill="x", pady=(0, 30))
+    create_stat_card(stats_frame, "Total Visitors", stats['total'], "👥", "#3B82F6")
+    create_stat_card(stats_frame, "Checked In", stats['in'], "📥", "#10B981")
+    create_stat_card(stats_frame, "Checked Out", stats['out'], "📤", "#6B7280")
     
-    # Table
-    table_container = tk.Frame(parent_frame, bg=BG_CARD, padx=2, pady=2, highlightbackground="#E5E7EB", highlightthickness=1)
-    table_container.pack(fill="both", expand=True, padx=30, pady=(0, 30))
+    # --- TABLE CONTAINER ---
+    table_outer = tk.Frame(parent_frame, bg=BG_CARD, padx=1, pady=1, highlightbackground="#E5E7EB", highlightthickness=1)
+    table_outer.pack(fill="both", expand=True, padx=40, pady=(0, 40))
     
-    lbl_frame = tk.Frame(table_container, bg="white", pady=10, padx=15)
+    lbl_frame = tk.Frame(table_outer, bg="white", pady=20, padx=20)
     lbl_frame.pack(fill="x")
-    tk.Label(lbl_frame, text="Recent Visitor Activity", font=("Segoe UI", 12, "bold"), fg=TEXT_PRI, bg="white").pack(side="left")
+    
+    tk.Label(lbl_frame, text="Recent Visitor Apppointment Activity", font=("Segoe UI", 14, "bold"), fg=DARK_BLUE_TEXT, bg="white").pack(side="left")
 
     style = ttk.Style()
-    style.configure("Dash.Treeview", font=("Segoe UI", 10), rowheight=30)
-    style.configure("Dash.Treeview.Heading", font=("Segoe UI", 10, "bold"))
+    style.theme_use("clam")
+
+    # Row Style
+    style.configure("Dash.Treeview", 
+                    background="white",
+                    foreground="#111827",
+                    rowheight=45, 
+                    fieldbackground="white",
+                    bordercolor="white", 
+                    font=("Segoe UI", 10))
     
-    cols = ("Name", "Company", "Vehicle", "Time", "Status")
-    table = ttk.Treeview(table_container, columns=cols, show="headings", style="Dash.Treeview", height=12)
+    # Header Style
+    style.configure("Dash.Treeview.Heading", 
+                    background=HEADER_BG,
+                    foreground="#374151",
+                    font=("Segoe UI", 10, "bold"),
+                    relief="flat",
+                    padding=(10, 10))
+
+    style.map("Dash.Treeview", background=[('selected', '#E0F2FE')])
+
+    # --- TABLE SETUP ---
+    cols = ("ID", "Visitor Name", "Reason", "Receptionist", "Start Time", "End Time")
+    table = ttk.Treeview(table_outer, columns=cols, show="headings", style="Dash.Treeview")
     
-    table.heading("Name", text="Visitor Name", anchor="w")
-    table.heading("Company", text="Company", anchor="w")
-    table.heading("Vehicle", text="Plate No", anchor="w")
-    table.heading("Time", text="Register/Visit Time", anchor="w")
-    table.heading("Status", text="Status", anchor="w")
+    # Headers
+    table.heading("ID", text="ID", anchor="center")
+    table.heading("Visitor Name", text="Visitor Name", anchor="w")
+    table.heading("Reason", text="Reason", anchor="center")
+    table.heading("Receptionist", text="Receptionist", anchor="center")
+    table.heading("Start Time", text="Start Time", anchor="center")
+    table.heading("End Time", text="End Time", anchor="center")
     
-    table.column("Name", width=150)
-    table.column("Company", width=150)
-    table.column("Vehicle", width=100)
-    table.column("Time", width=120)
-    table.column("Status", width=100)
+    # Columns Config
+    table.column("ID", width=100, anchor="center")      
+    table.column("Visitor Name", width=200, anchor="w") 
+    table.column("Reason", width=120, anchor="center")
+    table.column("Receptionist", width=150, anchor="center")
+    table.column("Start Time", width=160, anchor="center")
+    table.column("End Time", width=160, anchor="center")
     
-    sb = ttk.Scrollbar(table_container, orient="vertical", command=table.yview)
+    sb = ttk.Scrollbar(table_outer, orient="vertical", command=table.yview)
     table.configure(yscroll=sb.set)
     sb.pack(side="right", fill="y")
     table.pack(fill="both", expand=True)
+
+    table.tag_configure("odd", background="white")
+    table.tag_configure("even", background="#F9FAFB")
 
     threading.Thread(target=fetch_dashboard_data, args=(stats, table), daemon=True).start()

@@ -1,4 +1,6 @@
+import base64
 import tkinter as tk
+import os
 from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
 from tkcalendar import DateEntry  # Requires: pip install tkcalendar
@@ -145,6 +147,59 @@ def open_appointment_screen(root_instance, show_main_menu):
         if not messagebox.askyesno("Confirm", "No Visitor ID detected. Proceed anyway?"):
             return
     visitor_appointment.show_appointment_screen(root_instance, show_main_menu, prefill_visitor_id=current_visitor_id)
+
+
+def show_qr_success_popup(parent, appoint_id, visitor_id, b64_image_data, name):
+    """ Displays a modal with the QR Code and ID, and saves it to disk """
+    popup = tk.Toplevel(parent)
+    popup.title("Registration Successful")
+    popup.geometry("450x550")
+    popup.configure(bg="white")
+    popup.transient(parent) # Keep on top
+    popup.grab_set()        # Modal behavior
+
+    # 1. Clean the Base64 String (Critical for proper rendering)
+    # Remove newlines/spaces that might corrupt the image
+    b64_image_data = b64_image_data.replace("\n", "").replace("\r", "").strip()
+
+    # Title
+    tk.Label(popup, text="✅ Visitor Registered!", font=("Segoe UI", 16, "bold"), bg="white", fg=SUCCESS_COLOR).pack(pady=(20, 5))
+    tk.Label(popup, text=f"Welcome, {name}", font=("Segoe UI", 12), bg="white", fg=TEXT_COLOR).pack()
+
+    # QR Code Image
+    try:
+        # Render Image
+        qr_image = tk.PhotoImage(data=b64_image_data)
+        
+        # Display Image
+        img_lbl = tk.Label(popup, image=qr_image, bg="white", bd=1, relief="solid")
+        img_lbl.image = qr_image # Keep reference!
+        img_lbl.pack(pady=20, padx=20)
+        
+        # SAVE TO FILE (Debugging)
+        # This helps you check if the QR code is valid by opening it manually
+        with open("last_visitor_qr.png", "wb") as fh:
+            fh.write(base64.b64decode(b64_image_data))
+        print("DEBUG: QR Code saved to 'last_visitor_qr.png'")
+        
+    except Exception as e:
+        tk.Label(popup, text=f"(QR Render Error: {e})", bg="white", fg="red").pack(pady=20)
+        print(f"QR Error: {e}")
+
+    # Warning Label about Scanning
+    warn_text = "Note: If scanning with phone fails, it's because\nthe server is on Localhost (127.0.0.1).\nScan this at the Entry Terminal instead."
+    tk.Label(popup, text=warn_text, font=("Segoe UI", 9), bg="#FEF9E7", fg="#D35400", justify="center").pack(pady=(0, 15))
+
+    # IDs
+    info_frame = tk.Frame(popup, bg="#F4F6F7", pady=10, padx=10)
+    info_frame.pack(fill="x", padx=40, pady=(0, 20))
+    
+    tk.Label(info_frame, text=f"Visitor ID: {visitor_id}", font=("Segoe UI", 10, "bold"), bg="#F4F6F7", fg=TEXT_COLOR).pack()
+    tk.Label(info_frame, text=f"Appoint ID: {appoint_id}", font=("Segoe UI", 9), bg="#F4F6F7", fg=LABEL_COLOR).pack()
+
+    # Close Button
+    tk.Button(popup, text="Close", bg=PRIMARY_COLOR, fg="white", font=("Segoe UI", 10, "bold"), 
+              padx=20, pady=5, bd=0, cursor="hand2", command=popup.destroy).pack(side="bottom", pady=20)
 
 # ==========================================
 # 3. PROFESSIONAL COMPACT UI
