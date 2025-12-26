@@ -137,7 +137,9 @@ def show_visitor_register():
 
 def show_visitor_QR():
     clear_content()
-    visitorQRconfig.render_qr_config(content_frame)
+    # visitorQRconfig.render_qr_config(content_frame)
+    visitorQRconfig.show_qr_screen(content_frame)
+
 
 def show_visitor_checkstatus():
     clear_content()

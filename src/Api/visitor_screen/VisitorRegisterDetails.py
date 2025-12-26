@@ -135,9 +135,6 @@ class VisitorRegistrationScreen:
         # --- 4. FOOTER ---
         footer_frame = tk.Frame(parent, bg="#EAECEE", pady=8)
         footer_frame.pack(fill="x", side="bottom")
-        
-        tk.Label(footer_frame, text="© 2025 Indsys Holdings - All rights reserved.", 
-                 font=("Segoe UI", 8), bg="#EAECEE", fg="#555").pack()
 
         # Initial Load
         self.fetch_records()
