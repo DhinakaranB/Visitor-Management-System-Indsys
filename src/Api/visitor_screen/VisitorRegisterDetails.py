@@ -18,18 +18,31 @@ BTN_TEXT = "white"
 
 API_REGISTER_RECORD = "/artemis/api/visitor/v1/register/getVistorRegisterRecord"
 
+# --- STATUS MAPPING ---
+def get_status_text(status_code):
+    """Maps the API status code to a readable string."""
+    status_map = {
+        "0": "Checked In",
+        "1": "Checked Out",
+        "2": "Auto Checked Out",
+        "3": "Self-Service Out",
+        "4": "Overstay / Not Checked Out"
+    }
+    # Handle comma-separated statuses if they occur (e.g. "1,2")
+    if str(status_code) in status_map:
+        return status_map[str(status_code)]
+    return f"Status {status_code}"
+
 class VisitorRegistrationScreen:
     def __init__(self, parent):
         self.parent = parent
         
-        # Determine if parent is root or a frame to handle resizing gracefully
-        # (We don't set geometry if it's just a frame inside a larger UI)
+        # Determine if parent is root or a frame
         if isinstance(parent, tk.Tk) or isinstance(parent, tk.Toplevel):
             parent.title("Visitor Management System")
-            parent.geometry("1100x700")
+            parent.geometry("1200x700") # Slightly wider for extra time column
             parent.configure(bg=BG_COLOR)
         else:
-            # If it's a frame, ensure it has the background color
             parent.configure(bg=BG_COLOR)
 
         # --- STYLE CONFIGURATION ---
@@ -46,11 +59,10 @@ class VisitorRegistrationScreen:
         # Treeview Row Style
         self.style.configure("Treeview", 
                         font=("Segoe UI", 10), 
-                        rowheight=25, 
+                        rowheight=28, 
                         background="white", 
                         fieldbackground="white")
         
-        # Row Striping
         self.style.map("Treeview", background=[("selected", "#0078d7")])
 
         # --- 1. HEADER TITLE ---
@@ -94,7 +106,8 @@ class VisitorRegistrationScreen:
         table_frame = tk.Frame(parent, bg=BG_COLOR, padx=20, pady=10)
         table_frame.pack(fill="both", expand=True)
 
-        columns = ("recordId", "visitorName", "status", "regTime")
+        # Updated Columns to match requirements
+        columns = ("recordId", "visitorName", "status", "startTime", "endTime")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
 
         scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
@@ -105,10 +118,11 @@ class VisitorRegistrationScreen:
 
         # Column Config
         headers = [
-            ("recordId", "Record ID", 250),
-            ("visitorName", "Visitor Name", 200),
-            ("status", "Status", 100),
-            ("regTime", "Register Time", 200)
+            ("recordId", "Record ID", 220),
+            ("visitorName", "Visitor Name", 180),
+            ("status", "Status", 150),
+            ("startTime", "Start Time", 180),
+            ("endTime", "End Time", 180)
         ]
 
         for col, text, width in headers:
@@ -122,10 +136,14 @@ class VisitorRegistrationScreen:
         footer_frame = tk.Frame(parent, bg="#EAECEE", pady=8)
         footer_frame.pack(fill="x", side="bottom")
         
+        tk.Label(footer_frame, text="© 2025 Indsys Holdings - All rights reserved.", 
+                 font=("Segoe UI", 8), bg="#EAECEE", fg="#555").pack()
+
         # Initial Load
         self.fetch_records()
 
     def fetch_records(self):
+        # Clear existing data
         for item in self.tree.get_children():
             self.tree.delete(item)
 
@@ -150,14 +168,17 @@ class VisitorRegistrationScreen:
             except Exception as e:
                 print(f"API Exception: {e}")
         else:
-            # Mock Data
+            # Mock Data (Simulating the structure you provided)
             base_id = 640814489989545984
             for i in range(20):
                 rows.append({
                     "recordId": str(base_id + i),
-                    "visitorName": "N/A",
-                    "visitorStatus": "2",
-                    "registerTime": f"2025-11-04T{12+i%12}:58:00+05:30"
+                    "visitorStatus": str(i % 5), # Rotates 0-4
+                    "visitorBaseInfo": {
+                        "fullName": f"Visitor {i+1}",
+                        "visitStartTime": f"2025-12-19T09:00:00+08:00",
+                        "visitEndTime": f"2025-12-19T17:00:00+08:00",
+                    }
                 })
 
         if not rows:
@@ -165,14 +186,29 @@ class VisitorRegistrationScreen:
             return
 
         for index, r in enumerate(rows):
-            tag = "even" if index % 2 == 0 else "odd"
-            self.tree.insert("", "end", values=(
-                r.get("recordId", "-"),
-                r.get("visitorName", "N/A"),
-                r.get("visitorStatus", "-"),
-                r.get("registerTime", "-")
-            ), tags=(tag,))
+            # Parse nested info
+            rec_id = r.get("recordId", "-")
+            status_code = r.get("visitorStatus", "-")
+            
+            # Access the nested dictionary
+            base_info = r.get("visitorBaseInfo") or {}
+            
+            name = base_info.get("fullName", "N/A")
+            start_time = base_info.get("visitStartTime", "")
+            end_time = base_info.get("visitEndTime", "")
+            
+            # Convert status code to text
+            status_text = get_status_text(status_code)
 
+            tag = "even" if index % 2 == 0 else "odd"
+            
+            self.tree.insert("", "end", values=(
+                rec_id,
+                name,
+                status_text,
+                start_time,
+                end_time
+            ), tags=(tag,))
 
 # ---------------------------------------------------------
 #  REQUIRED FUNCTION FOR Ui.py
@@ -180,13 +216,10 @@ class VisitorRegistrationScreen:
 def render_register_details(parent):
     """
     Entry point called by Ui.py.
-    Clears the content frame and instantiates the screen class.
     """
-    # 1. Clear existing widgets in the content frame
     for widget in parent.winfo_children():
         widget.destroy()
 
-    # 2. Load the Visitor Registration Screen into the frame
     VisitorRegistrationScreen(parent)
 
 # ---------------------------------------------------------
@@ -194,6 +227,5 @@ def render_register_details(parent):
 # ---------------------------------------------------------
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry("1100x700")
     render_register_details(root)
     root.mainloop()

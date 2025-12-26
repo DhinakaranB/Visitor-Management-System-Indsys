@@ -6,16 +6,22 @@ import Api.Common_signature.common_signature_api as api_handler
 import json
 
 # ==========================================
-# 1. CONFIGURATION & STYLES
+# 1. CONFIGURATION & STYLES (LMS THEME)
 # ==========================================
-BG_COLOR = "#F4F6F7"
-CARD_BG = "#FFFFFF"
-PRIMARY_COLOR = "#3498DB"   # Blue
-SUCCESS_COLOR = "#27AE60"   # Green
-WARNING_COLOR = "#E67E22"   # Orange
-TEXT_COLOR = "#2C3E50"      # Dark Text
-LABEL_COLOR = "#7F8C8D"     # Grey Labels
-ERROR_COLOR = "#E74C3C"     # Red for *
+BG_MAIN = "white"             
+BG_SECTION = "#F3F4F6"        
+BG_APP = "#F4F6F7"            
+TEXT_HEADER = "#333333"       
+TEXT_LABEL = "#555555"        
+BORDER_COLOR = "#D1D5DB"      
+
+BTN_PRIMARY = "#4F46E5"       # Indigo
+BTN_SUCCESS = "#27AE60"       # Green
+BTN_TEXT = "white"
+
+FONT_HEADER = ("Segoe UI", 11, "bold")
+FONT_LABEL = ("Segoe UI", 9)
+FONT_ENTRY = ("Segoe UI", 10)
 
 # API Endpoints
 API_APPOINTMENT_PATH = "/artemis/api/visitor/v2/appointment"
@@ -25,7 +31,7 @@ ui_elements = {}
 current_visitor_id = None
 
 # ==========================================
-# 2. LOGIC HANDLERS
+# 2. LOGIC HANDLERS (UNCHANGED)
 # ==========================================
 
 def fetch_visitor_details(vis_id=None):
@@ -37,7 +43,7 @@ def fetch_visitor_details(vis_id=None):
         return
 
     payload = {"visitorId": vis_id}
-    ui_elements["status_lbl"].config(text="Fetching details...", fg=PRIMARY_COLOR)
+    # ui_elements["status_lbl"].config(text="Fetching details...", fg=BTN_PRIMARY) # Optional status update
     
     response = api_handler.call_api(API_GET_VISITOR, payload)
 
@@ -56,14 +62,14 @@ def fetch_visitor_details(vis_id=None):
             gen_str = "Male" if str(g_val) == "1" else "Female"
             ui_elements["gender_cb"].set(gen_str)
             
-            ui_elements["status_lbl"].config(text="Details Loaded Successfully", fg=SUCCESS_COLOR)
+            messagebox.showinfo("Found", "Visitor details loaded successfully.")
         else:
-            ui_elements["status_lbl"].config(text="Visitor ID not found", fg=ERROR_COLOR)
+            messagebox.showerror("Not Found", "Visitor ID not found.")
     else:
-        ui_elements["status_lbl"].config(text="Fetch Failed", fg=ERROR_COLOR)
+        messagebox.showerror("Error", "Fetch Failed.")
 
 def set_entry(key, value):
-    if key in ui_elements and value:
+    if key in ui_elements:
         ui_elements[key].delete(0, tk.END)
         ui_elements[key].insert(0, str(value))
 
@@ -124,27 +130,19 @@ def handle_booking(root_instance):
         ]
     }
 
-    ui_elements["status_lbl"].config(text="BOOKING...", fg=PRIMARY_COLOR)
-    root_instance.update()
-
     response = api_handler.call_api(API_APPOINTMENT_PATH, payload)
 
     if response and response.get("code") == "0":
         data = response.get("data", {})
         appoint_id = data.get("appointRecordId") or data.get("orderId")
-        if appoint_id:
-            messagebox.showinfo("✅ Success", f"Appointment Booked!\nRecord ID: {appoint_id}")
-            ui_elements["status_lbl"].config(text=f"BOOKED! ID: {appoint_id}", fg=SUCCESS_COLOR)
-        else:
-            ui_elements["status_lbl"].config(text="SUCCESS (NO ID)", fg=WARNING_COLOR)
+        messagebox.showinfo("✅ Success", f"Appointment Booked!\nRecord ID: {appoint_id}")
     else:
         msg = response.get('msg') if response else "Unknown Error"
         messagebox.showerror("Booking Failed", f"Error: {msg}")
-        ui_elements["status_lbl"].config(text="FAILED", fg=ERROR_COLOR)
 
 
 # ==========================================
-# 3. UI LAYOUT (Full Screen, Compact Fields)
+# 3. WIDE HORIZONTAL UI (MATCHING REGISTRATION)
 # ==========================================
 
 def show_appointment_screen(root_instance, show_main_menu, prefill_visitor_id=None):
@@ -152,167 +150,169 @@ def show_appointment_screen(root_instance, show_main_menu, prefill_visitor_id=No
     current_visitor_id = prefill_visitor_id
     ui_elements = {}
     
-    # Reset UI
+    # --- RESET ---
     for widget in root_instance.winfo_children(): widget.destroy()
-    root_instance.config(bg=BG_COLOR)
-    
-    try: root_instance.winfo_toplevel().state('zoomed')
+    root_instance.config(bg=BG_APP)
+    try: root_instance.state('zoomed')
     except: pass
 
-    # --- SCROLLABLE SETUP ---
-    main_canvas = tk.Canvas(root_instance, bg=BG_COLOR, highlightthickness=0)
-    scrollbar = ttk.Scrollbar(root_instance, orient="vertical", command=main_canvas.yview)
-    scrollable_frame = tk.Frame(main_canvas, bg=BG_COLOR)
+    # --- TOP BAR ---
+    top_bar = tk.Frame(root_instance, bg="white", pady=10, padx=20)
+    top_bar.pack(fill="x")
+    tk.Button(top_bar, text="← Back", command=show_main_menu, 
+              bg="white", fg="#777", bd=0, font=("Segoe UI", 10), cursor="hand2").pack(side="left")
+    tk.Label(top_bar, text="  |  Book Appointment", font=("Segoe UI", 16, "bold"), bg="white", fg=TEXT_HEADER).pack(side="left")
 
-    scrollable_frame.bind(
-        "<Configure>",
-        lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
-    )
+    # --- SCROLLABLE CANVAS SETUP ---
+    container = tk.Frame(root_instance, bg=BG_APP)
+    container.pack(fill="both", expand=True, padx=20, pady=20)
 
-    window_id = main_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-
-    def on_canvas_configure(event):
-        main_canvas.itemconfig(window_id, width=event.width)
+    canvas = tk.Canvas(container, bg=BG_MAIN, highlightthickness=0)
+    scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
     
-    main_canvas.bind("<Configure>", on_canvas_configure)
-    main_canvas.configure(yscrollcommand=scrollbar.set)
+    scrollable_frame = tk.Frame(canvas, bg=BG_MAIN, padx=40, pady=30)
+    
+    # --- CRITICAL FIX: Make inner frame fill the canvas width ---
+    frame_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
+    def configure_scroll_region(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    def configure_frame_width(event):
+        canvas.itemconfig(frame_id, width=event.width)
+
+    scrollable_frame.bind("<Configure>", configure_scroll_region)
+    canvas.bind("<Configure>", configure_frame_width)
+
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
-    main_canvas.pack(side="left", fill="both", expand=True)
 
-    # --- CONTENT CONTAINER ---
-    container = tk.Frame(scrollable_frame, bg=BG_COLOR, padx=40, pady=20)
-    container.pack(fill="both", expand=True)
+    # ==========================
+    # HELPERS
+    # ==========================
+    def create_section_header(text):
+        f = tk.Frame(scrollable_frame, bg=BG_SECTION, pady=8, padx=15)
+        f.pack(fill="x", pady=(25, 15))
+        tk.Label(f, text=text, font=FONT_HEADER, bg=BG_SECTION, fg=TEXT_HEADER).pack(anchor="w")
 
-    # --- Header ---
-    header_frame = tk.Frame(container, bg=BG_COLOR)
-    header_frame.pack(fill="x", pady=(0, 15))
-    tk.Button(header_frame, text="← Back", command=show_main_menu, bg=BG_COLOR, fg=LABEL_COLOR, bd=0, cursor="hand2").pack(side="left")
-    tk.Label(header_frame, text="  |  Book Appointment (Step 2)", font=("Segoe UI", 24, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(side="left")
+    def create_grid_frame(columns=4):
+        f = tk.Frame(scrollable_frame, bg=BG_MAIN)
+        f.pack(fill="x")
+        for i in range(columns):
+            f.columnconfigure(i, weight=1)
+        return f
 
-    # --- CARD ---
-    card = tk.Frame(container, bg=CARD_BG, padx=40, pady=30)
-    card.pack(fill="both", expand=True)
-
-    # Grid Config: 3 Columns (Left, Space, Right)
-    card.columnconfigure(0, weight=1) 
-    card.columnconfigure(1, weight=0, minsize=50) 
-    card.columnconfigure(2, weight=1) 
-
-    # Styles
-    style = ttk.Style()
-    style.configure("Modern.TEntry", padding=6)
-    style.configure("Modern.TCombobox", padding=6)
-
-    # === FIXED WIDTH FOR FIELDS (Reduced Size) ===
-    FIELD_WIDTH = 38  # Reduced width for "Fine" look
-
-    # --- Helper Functions ---
-    def add_header(row, text):
-        lbl = tk.Label(card, text=text.upper(), font=("Segoe UI", 10, "bold"), bg=CARD_BG, fg="#95A5A6")
-        lbl.grid(row=row, column=0, columnspan=3, sticky="w", pady=(25, 10))
-        ttk.Separator(card, orient="horizontal").grid(row=row+1, column=0, columnspan=3, sticky="ew", pady=(0, 20))
-        return row + 2
-
-    def add_field_label(row, col, label, required=False):
-        f = tk.Frame(card, bg=CARD_BG)
-        f.grid(row=row, column=col, sticky="w")
-        tk.Label(f, text=label, bg=CARD_BG, fg=TEXT_COLOR, font=("Segoe UI", 9, "bold")).pack(side="left")
+    def add_field(parent, label_text, key, row, col, default="", required=False, colspan=1):
+        f = tk.Frame(parent, bg=BG_MAIN, pady=5, padx=10)
+        f.grid(row=row, column=col, sticky="ew", columnspan=colspan)
+        
+        lbl_frame = tk.Frame(f, bg=BG_MAIN)
+        lbl_frame.pack(anchor="w", pady=(0, 5))
+        tk.Label(lbl_frame, text=label_text, font=FONT_LABEL, bg=BG_MAIN, fg=TEXT_LABEL).pack(side="left")
         if required:
-            tk.Label(f, text=" *", bg=CARD_BG, fg=ERROR_COLOR, font=("Segoe UI", 10, "bold")).pack(side="left")
+            tk.Label(lbl_frame, text=" *", font=FONT_LABEL, bg=BG_MAIN, fg="red").pack(side="left")
 
-    def add_entry(row, col, label, var_name, value="", required=False):
-        add_field_label(row, col, label, required)
-        e = ttk.Entry(card, font=("Segoe UI", 11), style="Modern.TEntry", width=FIELD_WIDTH)
-        # Removed sticky="ew" to keep fixed size
-        e.grid(row=row+1, column=col, sticky="w", pady=(5, 15))
-        if value: e.insert(0, str(value))
-        ui_elements[var_name] = e
-        return e
+        entry = ttk.Entry(f, font=FONT_ENTRY)
+        entry.pack(fill="x", ipady=5)
+        if default: entry.insert(0, str(default))
+        ui_elements[key] = entry
+        return entry
 
-    def add_combo(row, col, label, var_name, options, default, required=False):
-        add_field_label(row, col, label, required)
-        c = ttk.Combobox(card, values=options, font=("Segoe UI", 11), state="readonly", style="Modern.TCombobox", width=FIELD_WIDTH-2)
-        c.set(default)
-        c.grid(row=row+1, column=col, sticky="w", pady=(5, 15))
-        ui_elements[var_name] = c
+    def add_field_with_btn(parent, label_text, key, row, col, btn_cmd):
+        """Special field for Visitor ID with Search Button"""
+        f = tk.Frame(parent, bg=BG_MAIN, pady=5, padx=10)
+        f.grid(row=row, column=col, sticky="ew")
 
-    def add_date(row, col, label, var_name, required=False):
-        add_field_label(row, col, label, required)
-        d = DateEntry(card, width=FIELD_WIDTH-3, background=PRIMARY_COLOR, foreground='white', borderwidth=1, font=("Segoe UI", 11), date_pattern='yyyy-mm-dd')
-        d.grid(row=row+1, column=col, sticky="w", pady=(5, 15))
-        ui_elements[var_name] = d
+        lbl_frame = tk.Frame(f, bg=BG_MAIN)
+        lbl_frame.pack(anchor="w", pady=(0, 5))
+        tk.Label(lbl_frame, text=label_text, font=FONT_LABEL, bg=BG_MAIN, fg=TEXT_LABEL).pack(side="left")
+        tk.Label(lbl_frame, text=" *", font=FONT_LABEL, bg=BG_MAIN, fg="red").pack(side="left")
 
-    # ================= FIELDS =================
+        # Container for Entry + Button
+        box = tk.Frame(f, bg=BG_MAIN)
+        box.pack(fill="x")
+        
+        entry = ttk.Entry(box, font=FONT_ENTRY)
+        entry.pack(side="left", fill="x", expand=True, ipady=5)
+        
+        btn = tk.Button(box, text="🔍", bg="#E0E0E0", bd=0, padx=10, cursor="hand2", command=btn_cmd)
+        btn.pack(side="left", padx=(5,0), fill="y")
 
-    # --- SECTION 1: APPOINTMENT ---
-    r = add_header(0, "Appointment Details")
+        ui_elements[key] = entry
+
+    def add_combo(parent, label_text, key, row, col, values, default_val):
+        f = tk.Frame(parent, bg=BG_MAIN, pady=5, padx=10)
+        f.grid(row=row, column=col, sticky="ew")
+
+        tk.Label(f, text=label_text, font=FONT_LABEL, bg=BG_MAIN, fg=TEXT_LABEL).pack(anchor="w", pady=(0, 5))
+        combo = ttk.Combobox(f, values=values, font=FONT_ENTRY, state="readonly")
+        combo.pack(fill="x", ipady=5)
+        combo.set(default_val)
+        ui_elements[key] = combo
+
+    def add_date(parent, label_text, key, row, col, required=False):
+        f = tk.Frame(parent, bg=BG_MAIN, pady=5, padx=10)
+        f.grid(row=row, column=col, sticky="ew")
+
+        lbl_frame = tk.Frame(f, bg=BG_MAIN)
+        lbl_frame.pack(anchor="w", pady=(0, 5))
+        tk.Label(lbl_frame, text=label_text, font=FONT_LABEL, bg=BG_MAIN, fg=TEXT_LABEL).pack(side="left")
+        if required:
+            tk.Label(lbl_frame, text=" *", font=FONT_LABEL, bg=BG_MAIN, fg="red").pack(side="left")
+
+        dt = DateEntry(f, width=12, background='#34495E', foreground='white', borderwidth=2, font=FONT_ENTRY, date_pattern='yyyy-mm-dd')
+        dt.pack(fill="x", ipady=5)
+        ui_elements[key] = dt
+
+    # ==========================
+    # FORM CONTENT (4 Columns)
+    # ==========================
+
+    # --- 1. APPOINTMENT DETAILS ---
+    create_section_header("Appointment Details")
+    grid1 = create_grid_frame(columns=4)
     
-    # Row 1: ID & Receptionist
-    add_field_label(r, 0, "Visitor ID", True)
-    
-    id_frame = tk.Frame(card, bg=CARD_BG)
-    id_frame.grid(row=r+1, column=0, sticky="w", pady=(5, 15))
-    
-    id_entry = ttk.Entry(id_frame, font=("Segoe UI", 11), style="Modern.TEntry", width=FIELD_WIDTH-5)
-    id_entry.pack(side="left")
-    ui_elements["id_entry"] = id_entry
-    
-    search_btn = tk.Button(id_frame, text="🔍", command=lambda: fetch_visitor_details(), 
-                           bg="#EAEDED", bd=0, cursor="hand2", padx=10, pady=2)
-    search_btn.pack(side="left", padx=(5,0))
+    # Row 0
+    add_field_with_btn(grid1, "Visitor ID", "id_entry", 0, 0, btn_cmd=lambda: fetch_visitor_details())
+    add_field(grid1, "Receptionist ID", "rec_id_entry", 0, 1, "1")
+    add_date(grid1, "Start Date", "start_date", 0, 2, required=True)
+    add_date(grid1, "End Date", "end_date", 0, 3, required=True)
 
-    add_entry(r, 2, "Receptionist ID", "rec_id_entry", "1")
+    # Row 1
+    add_combo(grid1, "Visit Reason Type", "reason_type_cb", 1, 0, ["Business", "Training", "Visit", "Meeting", "Others"], "Business")
+    add_field(grid1, "Visit Purpose (Description)", "purpose_entry", 1, 1, "Business Meeting")
+    add_field(grid1, "Reason Detail", "reason_entry", 1, 2, "", colspan=2)
 
-    r += 2
-    add_date(r, 0, "Start Date", "start_date", True)
-    add_date(r, 2, "End Date", "end_date", True)
-    
-    r += 2
-    add_combo(r, 0, "Visit Reason Type", "reason_type_cb", ["Business", "Training", "Visit", "Meeting", "Others"], "Business")
-    add_entry(r, 2, "Visit Purpose (Description)", "purpose_entry", "Business Meeting")
+    # --- 2. VISITOR INFORMATION ---
+    create_section_header("Visitor Information (Auto-Filled)")
+    grid2 = create_grid_frame(columns=4)
 
-    # --- SECTION 2: VISITOR DATA ---
-    r += 2
-    r = add_header(r, "Visitor Information (Auto-Filled)")
+    # Row 0
+    add_field(grid2, "Given Name", "fname_entry", 0, 0, required=True)
+    add_field(grid2, "Family Name", "lname_entry", 0, 1)
+    add_field(grid2, "Phone Number", "phone_entry", 0, 2, required=True)
+    add_field(grid2, "Email Address", "email_entry", 0, 3)
 
-    add_entry(r, 0, "Given Name *", "fname_entry", required=True)
-    add_entry(r, 2, "Family Name", "lname_entry")
-    
-    r += 2
-    add_entry(r, 0, "Phone No *", "phone_entry", required=True)
-    add_entry(r, 2, "Email", "email_entry")
-    
-    r += 2
-    add_entry(r, 0, "Company", "comp_entry")
-    add_entry(r, 2, "Vehicle Plate", "plate_entry")
-    
-    r += 2
-    add_entry(r, 0, "Group Name", "group_entry", "Visitors")
-    add_combo(r, 2, "Gender", "gender_cb", ["Male", "Female"], "Male")
-    
-    r += 2
-    add_entry(r, 0, "Reason Detail", "reason_entry")
+    # Row 1
+    add_field(grid2, "Company", "comp_entry", 1, 0)
+    add_field(grid2, "Vehicle Plate", "plate_entry", 1, 1)
+    add_field(grid2, "Group Name", "group_entry", 1, 2, "Visitors")
+    add_combo(grid2, "Gender", "gender_cb", 1, 3, ["Male", "Female"], "Male")
 
-    # --- Auto-Fill ---
+    # --- FOOTER ---
+    btn_frame = tk.Frame(scrollable_frame, bg=BG_MAIN, pady=30)
+    btn_frame.pack(fill="x")
+
+    tk.Button(btn_frame, text="CONFIRM BOOKING", bg=BTN_PRIMARY, fg="white", font=("Segoe UI", 10, "bold"),
+              padx=25, pady=10, relief="flat", cursor="hand2",
+              command=lambda: handle_booking(root_instance)).pack(side="left")
+
+    tk.Button(btn_frame, text="BACK TO REGISTRATION", bg="#95A5A6", fg="white", font=("Segoe UI", 10, "bold"),
+              padx=25, pady=10, relief="flat", cursor="hand2",
+              command=show_main_menu).pack(side="right")
+    
+    # Auto-fill if ID provided
     if prefill_visitor_id:
         ui_elements["id_entry"].insert(0, str(prefill_visitor_id))
         root_instance.after(500, lambda: fetch_visitor_details(prefill_visitor_id))
-
-    # --- Footer ---
-    footer = tk.Frame(container, bg=BG_COLOR)
-    footer.pack(fill="x", pady=20, side="bottom")
-    
-    status_frame = tk.Frame(footer, bg="#EAEDED")
-    status_frame.pack(side="left", fill="x", expand=True)
-    tk.Label(status_frame, text="* Required Fields", bg="#EAEDED", fg=ERROR_COLOR, padx=15, pady=8, font=("Segoe UI", 9, "bold")).pack(side="left")
-    ui_elements["status_lbl"] = tk.Label(status_frame, text="Ready", bg="#EAEDED", fg=LABEL_COLOR, font=("Segoe UI", 9))
-    ui_elements["status_lbl"].pack(side="left")
-
-    tk.Button(footer, text="CONFIRM BOOKING", bg=PRIMARY_COLOR, fg="white", font=("Segoe UI", 11, "bold"), 
-              padx=30, pady=10, borderwidth=0, cursor="hand2",
-              command=lambda: handle_booking(root_instance)).pack(side="right", padx=15)
-              
-    tk.Button(footer, text="BACK TO REGISTRATION", bg="#BDC3C7", fg="white", font=("Segoe UI", 11, "bold"), 
-              padx=20, pady=10, borderwidth=0, cursor="hand2",
-              command=show_main_menu).pack(side="right")

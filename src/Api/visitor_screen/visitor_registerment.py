@@ -11,17 +11,21 @@ import json
 # ==========================================
 # 1. CONFIGURATION & STYLES
 # ==========================================
-BG_COLOR = "#F4F6F7"        
-CARD_BG = "#FFFFFF"         
-PRIMARY_COLOR = "#3498DB"   
-SUCCESS_COLOR = "#27AE60"   
-WARNING_COLOR = "#E67E22"   
-TEXT_COLOR = "#2C3E50"      
-LABEL_COLOR = "#7F8C8D"     
-BORDER_COLOR = "#D5DBDB"
-ERROR_COLOR = "#E74C3C"     # Red for validation *
+BG_MAIN = "white"             
+BG_SECTION = "#F3F4F6"        
+BG_APP = "#F4F6F7"            
+TEXT_HEADER = "#333333"       
+TEXT_LABEL = "#555555"        
+BORDER_COLOR = "#D1D5DB"      
 
-# API Endpoints
+BTN_PRIMARY = "#4F46E5"       
+BTN_SUCCESS = "#27AE60"       
+BTN_TEXT = "white"
+
+FONT_HEADER = ("Segoe UI", 11, "bold")
+FONT_LABEL = ("Segoe UI", 9)
+FONT_ENTRY = ("Segoe UI", 10)
+
 API_CREATE_PATH = "/artemis/api/visitor/v1/registerment"
 API_UPDATE_PATH = "/artemis/api/visitor/v1/registerment/update"
 
@@ -30,35 +34,28 @@ current_visitor_id = None
 is_edit_mode = False      
 
 # ==========================================
-# 2. LOGIC HANDLERS
+# 2. LOGIC HANDLERS (UNCHANGED)
 # ==========================================
 
 def handle_submit(root_instance):
-    """ Handles Register using the EXACT JSON structure provided """
     global current_visitor_id
-    
-    # --- 1. GET DATA FROM UI ---
     rec_id = ui_elements["rec_id"].get()
     
-    # Date Handling: Get Date Objects + Add Time & Timezone
     date_start = ui_elements["start_date"].get_date()
     date_end = ui_elements["end_date"].get_date()
     
-    # Construct ISO 8601 Strings
     start_time = date_start.strftime("%Y-%m-%dT09:00:00+05:30")
     end_time = date_end.strftime("%Y-%m-%dT18:00:00+05:30")
 
-    # Purpose Mapping
     purpose_str = ui_elements["purpose_cb"].get()
     purpose_map = {"Business": 0, "Training": 1, "Visit": 2, "Meeting": 3, "Others": 4}
-    visit_purpose_type = purpose_map.get(purpose_str, 4) # Default to Others
+    visit_purpose_type = purpose_map.get(purpose_str, 4) 
 
     f_name = ui_elements["fname_entry"].get()
     l_name = ui_elements["lname_entry"].get()
     phone = ui_elements["phone_entry"].get()
     email = ui_elements["email_entry"].get()
     
-    # Gender Mapping
     gender_str = ui_elements["gender_cb"].get()
     gender_map = {"Male": 1, "Female": 2, "Unknown": 0}
     gender_val = gender_map.get(gender_str, 1)
@@ -68,12 +65,10 @@ def handle_submit(root_instance):
     plate = ui_elements["plate_entry"].get()
     remark = ui_elements["remark_entry"].get()
 
-    # --- Validation ---
     if not f_name or not phone:
-        messagebox.showwarning("Validation", "First Name and Phone Number are required.")
+        messagebox.showwarning("Validation", "First Name and Phone Number are required (*).")
         return
 
-    # --- 2. PREPARE EXACT PAYLOAD ---
     payload = {
         "receptionistId": rec_id,
         "visitStartTime": start_time,
@@ -91,23 +86,14 @@ def handle_submit(root_instance):
                     "phoneNo": phone,
                     "plateNo": plate,
                     "companyName": company,
-                    # "certificateType" REMOVED
                     "remark": remark,
-                    "accessInfo": {
-                        "electrostaticDetectionType": 1,
-                        "qrCodeValidNum": 1
-                    }
+                    "accessInfo": {"electrostaticDetectionType": 1, "qrCodeValidNum": 1}
                 },
-                "cards": [
-                    {
-                        "cardNo": "123456" 
-                    }
-                ]
+                "cards": [{"cardNo": "123456"}]
             }
         ]
     }
 
-    # --- 3. DETERMINE API PATH ---
     if is_edit_mode and current_visitor_id:
         api_path = API_UPDATE_PATH
         payload["visitorInfoList"][0]["VisitorInfo"]["visitorId"] = current_visitor_id
@@ -116,27 +102,20 @@ def handle_submit(root_instance):
         api_path = API_CREATE_PATH
         action_name = "Registration"
 
-    # --- 4. CALL API ---
     response = api_handler.call_api(api_path, payload)
 
-    # --- 5. HANDLE RESPONSE ---
     if response and response.get("code") == "0":
         data = response.get("data", {})
-        
         new_id = None
         if isinstance(data, dict):
             new_id = data.get("visitorId")
             if not new_id and "list" in data:
                  try: new_id = data["list"][0].get("visitorId")
                  except: pass
-        
         if new_id: current_visitor_id = new_id
-        
         messagebox.showinfo("Success", f"{action_name} Successful!")
-        
         if current_visitor_id:
-            ui_elements["btn_appt"].config(state="normal", bg=SUCCESS_COLOR, text="NEXT: BOOK APPOINTMENT ➜")
-            ui_elements["status_bar"].config(bg="#D4EFDF", fg=SUCCESS_COLOR, text=f"✅ SAVED ID: {current_visitor_id}")
+            ui_elements["btn_appt"].config(state="normal", bg=BTN_SUCCESS, text="NEXT: BOOK APPOINTMENT ➜")
     else:
         msg = response.get('msg') if response else "Unknown Error"
         messagebox.showerror("Error", f"{action_name} Failed: {msg}")
@@ -147,56 +126,10 @@ def open_appointment_screen(root_instance, show_main_menu):
             return
     visitor_appointment.show_appointment_screen(root_instance, show_main_menu, prefill_visitor_id=current_visitor_id)
 
-
-def show_qr_success_popup(parent, appoint_id, visitor_id, b64_image_data, name):
-    """ Displays a modal with the QR Code and ID, and saves it to disk """
-    popup = tk.Toplevel(parent)
-    popup.title("Registration Successful")
-    popup.geometry("450x550")
-    popup.configure(bg="white")
-    popup.transient(parent) # Keep on top
-    popup.grab_set()        # Modal behavior
-
-    # 1. Clean the Base64 String (Critical for proper rendering)
-    b64_image_data = b64_image_data.replace("\n", "").replace("\r", "").strip()
-
-    # Title
-    tk.Label(popup, text="✅ Visitor Registered!", font=("Segoe UI", 16, "bold"), bg="white", fg=SUCCESS_COLOR).pack(pady=(20, 5))
-    tk.Label(popup, text=f"Welcome, {name}", font=("Segoe UI", 12), bg="white", fg=TEXT_COLOR).pack()
-
-    # QR Code Image
-    try:
-        qr_image = tk.PhotoImage(data=b64_image_data)
-        img_lbl = tk.Label(popup, image=qr_image, bg="white", bd=1, relief="solid")
-        img_lbl.image = qr_image 
-        img_lbl.pack(pady=20, padx=20)
-        
-        with open("last_visitor_qr.png", "wb") as fh:
-            fh.write(base64.b64decode(b64_image_data))
-        print("DEBUG: QR Code saved to 'last_visitor_qr.png'")
-        
-    except Exception as e:
-        tk.Label(popup, text=f"(QR Render Error: {e})", bg="white", fg="red").pack(pady=20)
-        print(f"QR Error: {e}")
-
-    # Warning Label
-    warn_text = "Note: If scanning with phone fails, it's because\nthe server is on Localhost (127.0.0.1).\nScan this at the Entry Terminal instead."
-    tk.Label(popup, text=warn_text, font=("Segoe UI", 9), bg="#FEF9E7", fg="#D35400", justify="center").pack(pady=(0, 15))
-
-    # IDs
-    info_frame = tk.Frame(popup, bg="#F4F6F7", pady=10, padx=10)
-    info_frame.pack(fill="x", padx=40, pady=(0, 20))
-    
-    tk.Label(info_frame, text=f"Visitor ID: {visitor_id}", font=("Segoe UI", 10, "bold"), bg="#F4F6F7", fg=TEXT_COLOR).pack()
-    tk.Label(info_frame, text=f"Appoint ID: {appoint_id}", font=("Segoe UI", 9), bg="#F4F6F7", fg=LABEL_COLOR).pack()
-
-    # Close Button
-    tk.Button(popup, text="Close", bg=PRIMARY_COLOR, fg="white", font=("Segoe UI", 10, "bold"), 
-              padx=20, pady=5, bd=0, cursor="hand2", command=popup.destroy).pack(side="bottom", pady=20)
-
 # ==========================================
-# 3. PROFESSIONAL COMPACT UI
+# 3. FULL WIDTH FLUID UI
 # ==========================================
+
 def show_register_screen(root_instance, show_main_screen_callback, edit_data=None):
     global ui_elements, current_visitor_id, is_edit_mode
     
@@ -204,175 +137,180 @@ def show_register_screen(root_instance, show_main_screen_callback, edit_data=Non
     current_visitor_id = None
     is_edit_mode = False
     
-    # Maximize Window
-    try:
-        root_instance.winfo_toplevel().state('zoomed')
-    except:
-        pass
+    # --- RESET ---
+    for widget in root_instance.winfo_children(): widget.destroy()
+    root_instance.config(bg=BG_APP)
+    try: root_instance.state('zoomed') 
+    except: pass
 
-    # Check Mode
     if edit_data and ("visitorId" in edit_data or "visitorID" in edit_data):
         is_edit_mode = True
         current_visitor_id = edit_data.get("visitorId") or edit_data.get("visitorID")
-        title_text = "Update Visitor"
-        btn_text = "SAVE CHANGES"
-        btn_bg = WARNING_COLOR 
+        header_text = "Update Visitor Registration"
+        btn_text = "Save Changes"
     else:
-        title_text = "New Visitor Registration"
-        btn_text = "REGISTER VISITOR"
-        btn_bg = PRIMARY_COLOR 
+        header_text = "New Visitor Registration"
+        btn_text = "Register Visitor"
 
-    # --- RESET WINDOW ---
-    for widget in root_instance.winfo_children(): widget.destroy()
-    root_instance.config(bg=BG_COLOR)
+    # --- TOP BAR ---
+    top_bar = tk.Frame(root_instance, bg="white", pady=10, padx=20)
+    top_bar.pack(fill="x")
+    tk.Button(top_bar, text="← Back", command=show_main_screen_callback, 
+              bg="white", fg="#777", bd=0, font=("Segoe UI", 10), cursor="hand2").pack(side="left")
+    tk.Label(top_bar, text=f"  |  {header_text}", font=("Segoe UI", 16, "bold"), bg="white", fg=TEXT_HEADER).pack(side="left")
 
-    # --- MAIN CONTAINER ---
-    container = tk.Frame(root_instance, bg=BG_COLOR, padx=40, pady=10)
-    container.pack(fill="both", expand=True)
+    # --- SCROLLABLE CANVAS SETUP ---
+    container = tk.Frame(root_instance, bg=BG_APP)
+    container.pack(fill="both", expand=True, padx=20, pady=20)
+
+    canvas = tk.Canvas(container, bg=BG_MAIN, highlightthickness=0)
+    scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
     
-    # --- HEADER ---
-    header_frame = tk.Frame(container, bg=BG_COLOR)
-    header_frame.pack(fill="x", pady=(0, 5))
+    scrollable_frame = tk.Frame(canvas, bg=BG_MAIN, padx=40, pady=30)
     
-    tk.Button(header_frame, text="← Back", command=show_main_screen_callback, bg=BG_COLOR, fg=LABEL_COLOR, bd=0, cursor="hand2").pack(side="left")
-    tk.Label(header_frame, text=f"  |  {title_text}", font=("Segoe UI", 18, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(side="left")
+    # ---------------------------------------------------------
+    # CRITICAL FIX: Make inner frame fill the canvas width
+    # ---------------------------------------------------------
+    frame_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
-    # --- CARD (WHITE BOX) ---
-    card = tk.Frame(container, bg=CARD_BG, padx=30, pady=15)
-    card.pack(fill="both", expand=True)
-    
-    card.columnconfigure(1, weight=1)
-    card.columnconfigure(3, weight=1)
-    
-    style = ttk.Style()
-    style.configure("Modern.TEntry", padding=5)
+    def configure_scroll_region(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
 
-    def add_header(row, text):
-        lbl = tk.Label(card, text=text, font=("Segoe UI", 10, "bold"), bg=CARD_BG, fg="#95A5A6")
-        lbl.grid(row=row, column=0, columnspan=4, sticky="w", pady=(10, 2))
-        ttk.Separator(card, orient="horizontal").grid(row=row+1, column=0, columnspan=4, sticky="ew", pady=(0, 5))
-        return row + 2
+    def configure_frame_width(event):
+        # Force the scrollable_frame width to match the canvas width
+        canvas.itemconfig(frame_id, width=event.width)
 
-    def add_field_label(row, col, label, required=False):
-        # Frame to hold label and star
-        lbl_frame = tk.Frame(card, bg=CARD_BG)
-        lbl_frame.grid(row=row, column=col, sticky="w", pady=(0,0))
+    scrollable_frame.bind("<Configure>", configure_scroll_region)
+    canvas.bind("<Configure>", configure_frame_width)
+    # ---------------------------------------------------------
+
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # ==========================
+    # HELPERS
+    # ==========================
+    def create_section_header(text):
+        f = tk.Frame(scrollable_frame, bg=BG_SECTION, pady=8, padx=15)
+        f.pack(fill="x", pady=(25, 15))
+        tk.Label(f, text=text, font=FONT_HEADER, bg=BG_SECTION, fg=TEXT_HEADER).pack(anchor="w")
+
+    def create_grid_frame(columns=4):
+        f = tk.Frame(scrollable_frame, bg=BG_MAIN)
+        f.pack(fill="x")
+        # Give every column equal weight so they stretch
+        for i in range(columns):
+            f.columnconfigure(i, weight=1) 
+        return f
+
+    def add_field(parent, label_text, key, row, col, default="", required=False, colspan=1):
+        # Frame wrapper to add padding around the field
+        f = tk.Frame(parent, bg=BG_MAIN, pady=5, padx=10)
+        f.grid(row=row, column=col, sticky="ew", columnspan=colspan)
         
-        tk.Label(lbl_frame, text=label, bg=CARD_BG, fg=TEXT_COLOR, font=("Segoe UI", 9)).pack(side="left")
+        lbl_frame = tk.Frame(f, bg=BG_MAIN)
+        lbl_frame.pack(anchor="w", pady=(0, 5))
+        tk.Label(lbl_frame, text=label_text, font=FONT_LABEL, bg=BG_MAIN, fg=TEXT_LABEL).pack(side="left")
         if required:
-            tk.Label(lbl_frame, text=" *", bg=CARD_BG, fg=ERROR_COLOR, font=("Segoe UI", 10, "bold")).pack(side="left")
+            tk.Label(lbl_frame, text=" *", font=FONT_LABEL, bg=BG_MAIN, fg="red").pack(side="left")
 
-    def add_text_field(row, col, label, var_name, value="", width=None, required=False):
-        add_field_label(row, col, label, required)
-        
-        entry = ttk.Entry(card, font=("Segoe UI", 10), style="Modern.TEntry")
-        if width: entry.config(width=width)
-        entry.grid(row=row+1, column=col, sticky="ew", padx=(0, 20), pady=(0, 8))
-        if value: entry.insert(0, str(value))
-        ui_elements[var_name] = entry
+        entry = ttk.Entry(f, font=FONT_ENTRY)
+        entry.pack(fill="x", ipady=5) # ipady makes it taller
+        entry.insert(0, str(default))
+        ui_elements[key] = entry
 
-    def add_dropdown_field(row, col, label, var_name, options, default_val, required=False):
-        add_field_label(row, col, label, required)
+    def add_combo(parent, label_text, key, row, col, values, default_val):
+        f = tk.Frame(parent, bg=BG_MAIN, pady=5, padx=10)
+        f.grid(row=row, column=col, sticky="ew")
+
+        tk.Label(f, text=label_text, font=FONT_LABEL, bg=BG_MAIN, fg=TEXT_LABEL).pack(anchor="w", pady=(0, 5))
         
-        combo = ttk.Combobox(card, values=options, font=("Segoe UI", 10), state="readonly")
+        combo = ttk.Combobox(f, values=values, font=FONT_ENTRY, state="readonly")
+        combo.pack(fill="x", ipady=5)
         combo.set(default_val)
-        combo.grid(row=row+1, column=col, sticky="ew", padx=(0, 20), pady=(0, 8))
-        ui_elements[var_name] = combo
+        ui_elements[key] = combo
 
-    def add_date_field(row, col, label, var_name, default_date_iso=None, required=False):
-        add_field_label(row, col, label, required)
-        
-        date_picker = DateEntry(card, width=12, background=PRIMARY_COLOR, foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
-        date_picker.grid(row=row+1, column=col, sticky="ew", padx=(0, 20), pady=(0, 8))
-        
-        # Pre-select date if updating
-        if default_date_iso:
-            try:
-                dt = datetime.strptime(default_date_iso[:10], "%Y-%m-%d")
-                date_picker.set_date(dt)
-            except:
-                pass
-        
-        ui_elements[var_name] = date_picker
+    def add_date(parent, label_text, key, row, col, default_iso=None, required=False):
+        f = tk.Frame(parent, bg=BG_MAIN, pady=5, padx=10)
+        f.grid(row=row, column=col, sticky="ew")
 
-    # Data Extract
+        lbl_frame = tk.Frame(f, bg=BG_MAIN)
+        lbl_frame.pack(anchor="w", pady=(0, 5))
+        tk.Label(lbl_frame, text=label_text, font=FONT_LABEL, bg=BG_MAIN, fg=TEXT_LABEL).pack(side="left")
+        if required:
+            tk.Label(lbl_frame, text=" *", font=FONT_LABEL, bg=BG_MAIN, fg="red").pack(side="left")
+
+        dt = DateEntry(f, width=12, background='#34495E', foreground='white', borderwidth=2, font=FONT_ENTRY, date_pattern='yyyy-mm-dd')
+        dt.pack(fill="x", ipady=5)
+        
+        if default_iso:
+            try: dt.set_date(datetime.strptime(default_iso[:10], "%Y-%m-%d"))
+            except: pass
+        
+        ui_elements[key] = dt
+
+    # --- DATA ---
     d = edit_data if edit_data else {}
 
-    # === 1. VISIT DETAILS ===
-    r = add_header(0, "Visit Details")
+    # ==========================
+    # FORM CONTENT
+    # ==========================
+
+    # --- 1. VISIT DETAILS ---
+    create_section_header("Visit Details")
+    grid1 = create_grid_frame(columns=4) 
     
-    # Row 1: ID & Purpose
-    add_text_field(r, 0, "Receptionist ID", "rec_id", d.get("receptionistId", "1"))
+    add_field(grid1, "Receptionist ID", "rec_id", 0, 0, d.get("receptionistId", "1"))
     
-    purposes = ["Business", "Training", "Visit", "Meeting", "Others"]
-    default_purpose = d.get("visitPurpose", "Business")
-    if default_purpose == "null": default_purpose = "Business"
-    add_dropdown_field(r, 2, "Visit Purpose", "purpose_cb", purposes, default_purpose)
+    def_purpose = d.get("visitPurpose", "Business")
+    if def_purpose == "null": def_purpose = "Business"
+    add_combo(grid1, "Visit Purpose", "purpose_cb", 0, 1, ["Business", "Training", "Visit", "Meeting", "Others"], def_purpose)
     
-    r += 2
-    # Row 2: Date Pickers
     def_start = d.get("visitStartTime", datetime.now().strftime("%Y-%m-%dT..."))
     def_end = d.get("visitEndTime", datetime.now().strftime("%Y-%m-%dT..."))
     
-    add_date_field(r, 0, "Visit Start Date", "start_date", def_start, required=True)
-    add_date_field(r, 2, "Visit End Date", "end_date", def_end, required=True)
+    add_date(grid1, "Visit Start Date", "start_date", 0, 2, def_start, required=True)
+    add_date(grid1, "Visit End Date", "end_date", 0, 3, def_end, required=True)
 
-    # === 2. PERSONAL INFO ===
-    r += 2
-    r = add_header(r, "Personal Information")
+    # --- 2. PERSONAL INFORMATION ---
+    create_section_header("Personal Information")
+    grid2 = create_grid_frame(columns=4)
+
+    add_field(grid2, "Given Name (First Name)", "fname_entry", 0, 0, d.get("visitorGivenName", ""), required=True)
+    add_field(grid2, "Family Name (Last Name)", "lname_entry", 0, 1, d.get("visitorFamilyName", "Guest"))
+    add_field(grid2, "Phone Number", "phone_entry", 0, 2, d.get("phoneNo", ""), required=True)
+    add_field(grid2, "Email Address", "email_entry", 0, 3, d.get("email", ""))
     
-    add_text_field(r, 0, "Given Name (First Name)", "fname_entry", d.get("visitorGivenName", ""), required=True)
-    add_text_field(r, 2, "Family Name (Last Name)", "lname_entry", d.get("visitorFamilyName", "Guest"))
-    
-    r += 2
-    add_text_field(r, 0, "Phone Number", "phone_entry", d.get("phoneNo", ""), required=True)
-    add_text_field(r, 2, "Email Address", "email_entry", d.get("email", ""))
-    
-    r += 2
-    # Gender Dropdown
     gender_map_rev = {"1": "Male", "2": "Female", "0": "Unknown"}
     raw_gen = str(d.get("gender", "1"))
     def_gen = gender_map_rev.get(raw_gen, "Male")
-    add_dropdown_field(r, 0, "Gender", "gender_cb", ["Male", "Female", "Unknown"], def_gen)
+    add_combo(grid2, "Gender", "gender_cb", 1, 0, ["Male", "Female", "Unknown"], def_gen)
 
-    # === 3. COMPANY & OTHER ===
-    r += 2
-    r = add_header(r, "Company & Additional Info")
-    
-    add_text_field(r, 0, "Company Name", "company_entry", d.get("companyName", ""))
-    add_text_field(r, 2, "Vehicle Plate", "plate_entry", d.get("plateNo", ""))
-    
-    r += 2
-    # RESTORED GROUP NAME (Required for logic)
-    add_text_field(r, 0, "Group Name", "group_entry", d.get("visitorGroupName", "Visitors"))
-    # Certificate Type REMOVED from UI
-    
-    r += 2
-    # Remark spans full width
-    tk.Label(card, text="Remark", bg=CARD_BG, fg=TEXT_COLOR, font=("Segoe UI", 9)).grid(row=r, column=0, sticky="w")
-    remark_entry = ttk.Entry(card, font=("Segoe UI", 10), style="Modern.TEntry")
-    remark_entry.grid(row=r+1, column=0, columnspan=4, sticky="ew", padx=(0, 20), pady=(0, 8))
-    remark_entry.insert(0, str(d.get("remark", "Visitor")))
-    ui_elements["remark_entry"] = remark_entry
+    # --- 3. COMPANY ---
+    create_section_header("Company & Additional Info")
+    grid3 = create_grid_frame(columns=4)
+
+    add_field(grid3, "Company Name", "company_entry", 0, 0, d.get("companyName", ""))
+    add_field(grid3, "Vehicle Plate", "plate_entry", 0, 1, d.get("plateNo", ""))
+    add_field(grid3, "Group Name", "group_entry", 0, 2, d.get("visitorGroupName", "Visitors"))
+    add_field(grid3, "Remark", "remark_entry", 0, 3, d.get("remark", "Visitor"))
 
     # --- FOOTER ---
-    footer = tk.Frame(container, bg=BG_COLOR)
-    footer.pack(fill="x", pady=10, side="bottom")
-    
-    # Status bar with Red legend
-    status_frame = tk.Frame(footer, bg="#EAEDED")
-    status_frame.pack(side="left", fill="x", expand=True)
-    tk.Label(status_frame, text="* Required Fields", bg="#EAEDED", fg=ERROR_COLOR, padx=15, pady=8, font=("Segoe UI", 9, "bold")).pack(side="left")
-    ui_elements["status_bar"] = tk.Label(status_frame, text="", bg="#EAEDED", fg=LABEL_COLOR, font=("Segoe UI", 9))
-    ui_elements["status_bar"].pack(side="left")
+    btn_frame = tk.Frame(scrollable_frame, bg=BG_MAIN, pady=30)
+    btn_frame.pack(fill="x")
 
-    tk.Button(footer, text=btn_text, bg=btn_bg, fg="white", font=("Segoe UI", 10, "bold"), padx=25, pady=8, borderwidth=0, cursor="hand2",
-              command=lambda: handle_submit(root_instance)).pack(side="left", padx=15)
-    
+    tk.Button(btn_frame, text=btn_text, bg=BTN_PRIMARY, fg=BTN_TEXT, font=("Segoe UI", 10, "bold"),
+              padx=25, pady=10, relief="flat", cursor="hand2",
+              command=lambda: handle_submit(root_instance)).pack(side="left")
+
     state = "normal" if is_edit_mode else "disabled"
-    bg_next = SUCCESS_COLOR if is_edit_mode else "#BDC3C7"
-    
-    ui_elements["btn_appt"] = tk.Button(footer, text="NEXT STEP ➜", bg=bg_next, fg="white", font=("Segoe UI", 10, "bold"), 
-                                        padx=25, pady=8, state=state, borderwidth=0, cursor="hand2",
+    bg_next = BTN_SUCCESS if is_edit_mode else "#BDC3C7"
+
+    ui_elements["btn_appt"] = tk.Button(btn_frame, text="NEXT STEP →", bg=bg_next, fg=BTN_TEXT, 
+                                        font=("Segoe UI", 10, "bold"), padx=25, pady=10, 
+                                        relief="flat", cursor="hand2", state=state,
                                         command=lambda: open_appointment_screen(root_instance, show_main_screen_callback))
-    ui_elements["btn_appt"].pack(side="left")
+    ui_elements["btn_appt"].pack(side="right")
+    
+    tk.Label(scrollable_frame, text="* Required Fields", fg="red", bg=BG_MAIN, font=("Segoe UI", 8)).pack(anchor="w")
