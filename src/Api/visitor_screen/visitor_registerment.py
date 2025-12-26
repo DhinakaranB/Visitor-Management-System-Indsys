@@ -3,7 +3,7 @@ import tkinter as tk
 import os
 from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
-from tkcalendar import DateEntry  # Requires: pip install tkcalendar
+from tkcalendar import DateEntry
 import Api.Common_signature.common_signature_api as api_handler
 import Api.visitor_screen.visitor_appointment as visitor_appointment 
 import json
@@ -44,7 +44,7 @@ def handle_submit(root_instance):
     date_start = ui_elements["start_date"].get_date()
     date_end = ui_elements["end_date"].get_date()
     
-    # Construct ISO 8601 Strings (Hardcoded 09:00 to 18:00 for simplicity, adjust as needed)
+    # Construct ISO 8601 Strings
     start_time = date_start.strftime("%Y-%m-%dT09:00:00+05:30")
     end_time = date_end.strftime("%Y-%m-%dT18:00:00+05:30")
 
@@ -66,7 +66,6 @@ def handle_submit(root_instance):
     group_name = ui_elements["group_entry"].get()
     company = ui_elements["company_entry"].get()
     plate = ui_elements["plate_entry"].get()
-    cert_type = ui_elements["cert_entry"].get()
     remark = ui_elements["remark_entry"].get()
 
     # --- Validation ---
@@ -92,7 +91,7 @@ def handle_submit(root_instance):
                     "phoneNo": phone,
                     "plateNo": plate,
                     "companyName": company,
-                    "certificateType": int(cert_type) if cert_type.isdigit() else 111,
+                    # "certificateType" REMOVED
                     "remark": remark,
                     "accessInfo": {
                         "electrostaticDetectionType": 1,
@@ -159,7 +158,6 @@ def show_qr_success_popup(parent, appoint_id, visitor_id, b64_image_data, name):
     popup.grab_set()        # Modal behavior
 
     # 1. Clean the Base64 String (Critical for proper rendering)
-    # Remove newlines/spaces that might corrupt the image
     b64_image_data = b64_image_data.replace("\n", "").replace("\r", "").strip()
 
     # Title
@@ -168,16 +166,11 @@ def show_qr_success_popup(parent, appoint_id, visitor_id, b64_image_data, name):
 
     # QR Code Image
     try:
-        # Render Image
         qr_image = tk.PhotoImage(data=b64_image_data)
-        
-        # Display Image
         img_lbl = tk.Label(popup, image=qr_image, bg="white", bd=1, relief="solid")
-        img_lbl.image = qr_image # Keep reference!
+        img_lbl.image = qr_image 
         img_lbl.pack(pady=20, padx=20)
         
-        # SAVE TO FILE (Debugging)
-        # This helps you check if the QR code is valid by opening it manually
         with open("last_visitor_qr.png", "wb") as fh:
             fh.write(base64.b64decode(b64_image_data))
         print("DEBUG: QR Code saved to 'last_visitor_qr.png'")
@@ -186,7 +179,7 @@ def show_qr_success_popup(parent, appoint_id, visitor_id, b64_image_data, name):
         tk.Label(popup, text=f"(QR Render Error: {e})", bg="white", fg="red").pack(pady=20)
         print(f"QR Error: {e}")
 
-    # Warning Label about Scanning
+    # Warning Label
     warn_text = "Note: If scanning with phone fails, it's because\nthe server is on Localhost (127.0.0.1).\nScan this at the Entry Terminal instead."
     tk.Label(popup, text=warn_text, font=("Segoe UI", 9), bg="#FEF9E7", fg="#D35400", justify="center").pack(pady=(0, 15))
 
@@ -255,7 +248,7 @@ def show_register_screen(root_instance, show_main_screen_callback, edit_data=Non
     style.configure("Modern.TEntry", padding=5)
 
     def add_header(row, text):
-        lbl = tk.Label(card, text=text.upper(), font=("Segoe UI", 9, "bold"), bg=CARD_BG, fg="#95A5A6")
+        lbl = tk.Label(card, text=text, font=("Segoe UI", 10, "bold"), bg=CARD_BG, fg="#95A5A6")
         lbl.grid(row=row, column=0, columnspan=4, sticky="w", pady=(10, 2))
         ttk.Separator(card, orient="horizontal").grid(row=row+1, column=0, columnspan=4, sticky="ew", pady=(0, 5))
         return row + 2
@@ -295,7 +288,6 @@ def show_register_screen(root_instance, show_main_screen_callback, edit_data=Non
         # Pre-select date if updating
         if default_date_iso:
             try:
-                # Expecting ISO like 2025-12-24T...
                 dt = datetime.strptime(default_date_iso[:10], "%Y-%m-%d")
                 date_picker.set_date(dt)
             except:
@@ -312,7 +304,6 @@ def show_register_screen(root_instance, show_main_screen_callback, edit_data=Non
     # Row 1: ID & Purpose
     add_text_field(r, 0, "Receptionist ID", "rec_id", d.get("receptionistId", "1"))
     
-    # Visit Purpose Dropdown (0-4 mapping)
     purposes = ["Business", "Training", "Visit", "Meeting", "Others"]
     default_purpose = d.get("visitPurpose", "Business")
     if default_purpose == "null": default_purpose = "Business"
@@ -352,8 +343,9 @@ def show_register_screen(root_instance, show_main_screen_callback, edit_data=Non
     add_text_field(r, 2, "Vehicle Plate", "plate_entry", d.get("plateNo", ""))
     
     r += 2
+    # RESTORED GROUP NAME (Required for logic)
     add_text_field(r, 0, "Group Name", "group_entry", d.get("visitorGroupName", "Visitors"))
-    add_text_field(r, 2, "Cert Type (111=ID)", "cert_entry", d.get("certificateType", "111"))
+    # Certificate Type REMOVED from UI
     
     r += 2
     # Remark spans full width
