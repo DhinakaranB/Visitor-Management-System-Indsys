@@ -1,78 +1,126 @@
 import tkinter as tk
 
 # --- CONFIGURATION ---
-# COLOR: Dark Krishna Blue (Deep Royal Navy)
-NAV_BG_COLOR = "#0D1E4C"    
-NAV_HOVER_COLOR = "#2A3E75" # Lighter shade for hover interaction
-TEXT_COLOR = "#FFFFFF"      # Pure White
+# GRADIENT COLORS (Deep Purple -> Bright Blue)
+COLOR_LEFT = "#667eea"   # Soft Blue
+COLOR_RIGHT = "#764ba2"  # Deep Purple
+TEXT_COLOR = "#FFFFFF"   # White
+HOVER_COLOR = "#FFD700"  # Gold color on hover
 
-FONT_LOGO = ("Segoe UI", 18, "bold")
-FONT_ITEM = ("Segoe UI", 11)
+FONT_LOGO = ("Segoe UI", 20, "bold")
+FONT_ITEM = ("Segoe UI", 11, "bold")
+
+class GradientHeader(tk.Canvas):
+    """
+    A Custom Navbar that draws a gradient and handles transparent text buttons.
+    """
+    def __init__(self, parent, height=70, **kwargs):
+        super().__init__(parent, height=height, highlightthickness=0, **kwargs)
+        self.pack(fill="x", side="top")
+        
+        # Bind resize event to redraw gradient
+        self.bind("<Configure>", self._draw_gradient)
+        self.items = [] # Store nav items to manage clicks
+
+    def _draw_gradient(self, event=None):
+        """ Draws the horizontal gradient background """
+        self.delete("gradient")
+        width = self.winfo_width()
+        height = self.winfo_height()
+        
+        # Don't draw if width is too small (startup)
+        if width < 1: return
+
+        (r1, g1, b1) = self.winfo_rgb(COLOR_LEFT)
+        (r2, g2, b2) = self.winfo_rgb(COLOR_RIGHT)
+        
+        # Draw vertical lines to create gradient
+        limit = width
+        r_ratio = (r2 - r1) / limit
+        g_ratio = (g2 - g1) / limit
+        b_ratio = (b2 - b1) / limit
+
+        # Optimization: Draw every 2nd pixel to improve resize performance
+        for i in range(0, limit, 2): 
+            nr = int((r1 + (r_ratio * i)) / 256)
+            ng = int((g1 + (g_ratio * i)) / 256)
+            nb = int((b1 + (b_ratio * i)) / 256)
+            color = "#%4.4x%4.4x%4.4x" % (nr, ng, nb)
+            self.create_line(i, 0, i, height, tags=("gradient",), fill=color, width=3)
+        
+        self.tag_lower("gradient") # Keep gradient behind text
+
+    def add_logo(self, text, cmd):
+        """ Adds the Logo text on the left """
+        tag = "logo"
+        self.create_text(30, 35, text=text, fill=TEXT_COLOR, font=FONT_LOGO, anchor="w", tags=(tag,))
+        self.tag_bind(tag, "<Button-1>", lambda e: cmd())
+        self.tag_bind(tag, "<Enter>", lambda e: self.config(cursor="hand2"))
+        self.tag_bind(tag, "<Leave>", lambda e: self.config(cursor=""))
+
+    def add_nav_items(self, items):
+        """ Adds navigation buttons dynamically """
+        start_x = 200 # Position where buttons start
+        gap = 100     # Space between buttons
+
+        for i, (text, cmd, has_dropdown) in enumerate(items):
+            display_text = f"{text} ▼" if has_dropdown else text
+            x_pos = start_x + (i * gap)
+            tag = f"nav_{i}"
+            
+            # Draw Text
+            self.create_text(x_pos, 35, text=display_text, fill=TEXT_COLOR, font=FONT_ITEM, anchor="w", tags=(tag,))
+            
+            # --- CRITICAL FIX IS HERE ---
+            # We must pass 'is_dropdown=has_dropdown' as a default argument.
+            # This 'freezes' the value so it doesn't get overwritten by the next loop iteration.
+            def on_click(event, command=cmd, widget_ref=self, is_dropdown=has_dropdown):
+                if is_dropdown:
+                    command(widget_ref) 
+                else:
+                    command()
+
+            def on_enter(event, t=tag):
+                self.itemconfig(t, fill=HOVER_COLOR)
+                self.config(cursor="hand2")
+
+            def on_leave(event, t=tag):
+                self.itemconfig(t, fill=TEXT_COLOR)
+                self.config(cursor="")
+
+            self.tag_bind(tag, "<Button-1>", on_click)
+            self.tag_bind(tag, "<Enter>", on_enter)
+            self.tag_bind(tag, "<Leave>", on_leave)
+
+    def add_profile(self):
+        """ Adds the Admin Profile on the right """
+        # Transparent hack: We match the bg color of the label to the Right Gradient Color
+        lbl = tk.Label(self, text="👤 Admin", bg=COLOR_RIGHT, fg=TEXT_COLOR, font=("Segoe UI", 11))
+        lbl.place(relx=1.0, rely=0.5, anchor="e", x=-20)
+
 
 def render_global_header(root, home_fn, visitor_fn, person_fn, vehicle_fn, door_fn, access_fn):
     """
-    Renders the top navigation bar with a professional Dark Krishna Blue theme.
+    Renders the new Gradient Navbar
     """
-    # 1. Main Header Frame
-    header_frame = tk.Frame(root, bg=NAV_BG_COLOR, height=60) # Slightly taller for elegance
-    header_frame.pack(fill="x", side="top")
-    header_frame.pack_propagate(False)
+    # 1. Create the Gradient Canvas
+    header = GradientHeader(root)
 
-    # 2. Logo (Left Side)
-    # Using a frame for alignment
-    logo_frame = tk.Frame(header_frame, bg=NAV_BG_COLOR)
-    logo_frame.pack(side="left", padx=(20, 50))
+    # 2. Add Logo
+    header.add_logo("VisitorMS", home_fn)
+
+    # 3. Add Navigation Items
+    # Format: ("Name", Function, HasDropdown)
+    nav_items = [
+        ("Home", home_fn, False),
+        ("Visitor", visitor_fn, True),
+        ("Person", person_fn, True),
+        ("Vehicle", vehicle_fn, True),
+        ("Door", door_fn, True),
+        ("Access", access_fn, False)
+    ]
     
-    logo_lbl = tk.Label(logo_frame, text="VisitorMS", bg=NAV_BG_COLOR, fg=TEXT_COLOR, font=FONT_LOGO)
-    logo_lbl.pack(side="left")
-    
-    # Click logo to go home
-    logo_lbl.bind("<Button-1>", lambda e: home_fn())
-    logo_lbl.bind("<Enter>", lambda e: logo_lbl.config(cursor="hand2"))
+    header.add_nav_items(nav_items)
 
-    # 3. Navigation Items Container
-    nav_container = tk.Frame(header_frame, bg=NAV_BG_COLOR)
-    nav_container.pack(side="left", fill="y")
-
-    # --- HELPER: Create Menu Buttons ---
-    def create_nav_item(text, command_fn, has_dropdown=False):
-        item_frame = tk.Frame(nav_container, bg=NAV_BG_COLOR, padx=18)
-        item_frame.pack(side="left", fill="y")
-        
-        full_text = f"{text}  ▼" if has_dropdown else text
-        lbl = tk.Label(item_frame, text=full_text, bg=NAV_BG_COLOR, fg=TEXT_COLOR, font=FONT_ITEM)
-        lbl.pack(side="left", fill="y", expand=True)
-
-        def on_enter(e):
-            item_frame.config(bg=NAV_HOVER_COLOR)
-            lbl.config(bg=NAV_HOVER_COLOR, cursor="hand2")
-
-        def on_leave(e):
-            item_frame.config(bg=NAV_BG_COLOR)
-            lbl.config(bg=NAV_BG_COLOR)
-
-        def on_click(e):
-            if has_dropdown:
-                command_fn(item_frame) 
-            else:
-                command_fn()
-
-        for w in (item_frame, lbl):
-            w.bind("<Enter>", on_enter)
-            w.bind("<Leave>", on_leave)
-            w.bind("<Button-1>", on_click)
-
-    # 4. Create Items
-    create_nav_item("Home", home_fn)
-    create_nav_item("Visitor", visitor_fn, True)
-    create_nav_item("Person", person_fn, True)
-    create_nav_item("Vehicle", vehicle_fn, True)
-    create_nav_item("Door", door_fn, True)
-    create_nav_item("Access Control", access_fn, False)
-
-    # 5. Right Side: User Profile
-    user_frame = tk.Frame(header_frame, bg=NAV_BG_COLOR)
-    user_frame.pack(side="right", padx=20)
-    
-    # Circle for user icon simulation
-    tk.Label(user_frame, text="👤 Admin", bg=NAV_BG_COLOR, fg="#AAB7D1", font=("Segoe UI", 10)).pack(side="right")
+    # 4. Add Profile
+    header.add_profile()

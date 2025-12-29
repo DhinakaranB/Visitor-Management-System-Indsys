@@ -122,7 +122,6 @@ def show_home():
     load_home_screen(content_frame)     
 
 def show_add_visitor():
-    # Pass the show_home callback correctly
     visitor_form.show_register_screen(content_frame, show_home)
 
 def show_single_visitor_list_external():
@@ -137,8 +136,8 @@ def show_visitor_register():
 
 def show_visitor_QR():
     clear_content()
-    # visitorQRconfig.render_qr_config(content_frame)
-    visitorQRconfig.show_qr_screen(content_frame)
+    # visitorQRconfig.render_qr_config(content_frame) 
+    visitorQRconfig.render_qr_config(content_frame, back_callback=content_frame)
 
 
 def show_visitor_checkstatus():
@@ -155,15 +154,18 @@ def show_linked_doors():
 def close_application():
     root.destroy()
 
-# -----------------------------------------
-# DROPDOWNS
-# -----------------------------------------
+# ==========================================================
+# PASTE THIS INTO src/Api/Homepage/Ui.py
+# (Replace the existing open_visitor_dropdown, open_person_dropdown, etc.)
+# ==========================================================
 
 def open_door_dropdown(widget):
     menu = tk.Toplevel(root)
     menu.overrideredirect(True)
     menu.config(bg="white")
-    x = widget.winfo_rootx()
+    
+    # FIX: Use Mouse Position (pointerx) to place menu under the click
+    x = root.winfo_pointerx() - 20
     y = widget.winfo_rooty() + widget.winfo_height()
     
     # Dynamic height calculation
@@ -199,8 +201,11 @@ def open_visitor_dropdown(widget):
     menu = tk.Toplevel(root)
     menu.overrideredirect(True)
     menu.config(bg="white")
-    x = widget.winfo_rootx()
+    
+    # FIX: Use Mouse Position
+    x = root.winfo_pointerx() - 20
     y = widget.winfo_rooty() + widget.winfo_height()
+    
     menu.geometry(f"240x240+{x}+{y}") 
 
     def item(txt, cmd):
@@ -224,8 +229,11 @@ def open_person_dropdown(widget):
     menu = tk.Toplevel(root)
     menu.overrideredirect(True) 
     menu.config(bg="white")
-    x = widget.winfo_rootx()
+    
+    # FIX: Use Mouse Position
+    x = root.winfo_pointerx() - 20
     y = widget.winfo_rooty() + widget.winfo_height()
+    
     menu.geometry(f"200x100+{x}+{y}") 
 
     def item(txt, cmd):
@@ -245,8 +253,11 @@ def open_vehicle_dropdown(widget):
     menu = tk.Toplevel(root)
     menu.overrideredirect(True) 
     menu.config(bg="white")
-    x = widget.winfo_rootx()
+    
+    # FIX: Use Mouse Position
+    x = root.winfo_pointerx() - 20
     y = widget.winfo_rooty() + widget.winfo_height()
+    
     menu.geometry(f"250x320+{x}+{y}") 
 
     def item(txt, cmd):
@@ -267,6 +278,8 @@ def open_vehicle_dropdown(widget):
 
     menu.bind("<FocusOut>", lambda e: menu.destroy())
     menu.focus_force()
+
+
 
 # -----------------------------------------
 # SETUP NAVBAR
@@ -291,8 +304,6 @@ def setup_navbar():
     content_frame.pack(fill="both", expand=True) 
 
     show_home()
-
-
 # -----------------------------------------
 # MAIN UI INIT
 # -----------------------------------------

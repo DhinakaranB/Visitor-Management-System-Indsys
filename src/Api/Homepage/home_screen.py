@@ -21,7 +21,7 @@ TEXT_PRI = "#111827"
 TEXT_SEC = "#6B7280"      
 HEADER_BG = "#F3F4F6"     
 BORDER_COLOR = "#E5E7EB"  
-DARK_BLUE_TEXT = "#0B2F64" 
+DARK_BLUE_TEXT = "#062F6C" 
 
 def call_api(url, payload):
     if not common_signature_api: return None
@@ -43,15 +43,14 @@ def fetch_dashboard_data(vars_dict, tree):
     start_time = "2020-01-01T00:00:00+05:30"
     end_time = "2030-12-31T23:59:59+05:30"
 
-    # --- 1. Fetch Visitor Info (Source for TOTAL COUNT & In/Out Status) ---
-    # We fetch this to get the correct "Total Visitors" number from the DB
-    payload_info = {"pageNo": 1, "pageSize": 500}
+    # --- 1. Fetch Stats ---
+    payload_info = {"pageNo": 1, "pageSize": 1}
     data_info = call_api(API_VISITOR_INFO, payload_info)
     if isinstance(data_info, str): 
         try: data_info = json.loads(data_info)
         except: pass
 
-    # --- 2. Fetch Appointments (Source for GRID Data) ---
+    # --- 2. Fetch Appointments ---
     payload_app = {
         "pageNo": 1,
         "pageSize": 500,
@@ -63,65 +62,66 @@ def fetch_dashboard_data(vars_dict, tree):
         try: data_app = json.loads(data_app)
         except: pass
 
-    # --- PROCESS STATS (From Visitor Info) ---
+    # --- PROCESS STATS ---
     real_total_visitors = 0
     in_count = 0
     out_count = 0
     
     if data_info and data_info.get("code") == "0":
         data_block = data_info.get("data", {})
-        # FIX: Get the Total from the API metadata, not just the list length
         real_total_visitors = data_block.get("total", 0)
-        
-        # Calculate In/Out from the list
         rows = data_block.get("VisitorInfo") or []
         for r in rows:
             status = str(r.get("status", "0"))
             if status == "1": in_count += 1
             elif status == "2": out_count += 1
 
-    # --- PROCESS GRID (From Appointment List) ---
+    # --- PROCESS GRID ---
     grid_rows = []
     
     if data_app and data_app.get("code") == "0":
         app_list = data_app.get("data", {}).get("list", [])
         
         for r in app_list:
-            # EXTRACT DATA
             v_info = r.get("visitorInfo", {})
             
-            # ID (Prefer ID from Visitor Info inside Appointment)
+            # 1. ID
             vid = str(v_info.get("visitorId") or "")
             
-            # Name
+            # 2. Name
             name = v_info.get("visitorGivenName", "")
             if not name: name = v_info.get("visitorName", "Unknown")
 
-            # Reason
+            # 3. Gender
+            g_code = v_info.get("gender")
+            gender = "Male" if g_code == 1 else "Female" if g_code == 2 else "--"
+
+            # 4. Phone
+            phone = v_info.get("phoneNo") or v_info.get("certificateNo") or "--"
+
+            # 5. Reason
             reason = str(r.get("visitorReasonName", "--"))
             
-            # Receptionist
+            # 6. Receptionist
             receptionist = str(r.get("receptionistName", "Admin"))
             
-            # Times
+            # 7. Times
             t_start_raw = r.get("appointStartTime", "")
             t_end_raw = r.get("appointEndTime", "")
-            
             t_start = t_start_raw.replace("T", " ")[:16] if t_start_raw else "--"
             t_end = t_end_raw.replace("T", " ")[:16] if t_end_raw else "--"
 
             # Create Row
             grid_rows.append({
                 "sort_key": t_start_raw,
-                "values": (vid, name, reason, receptionist, t_start, t_end)
+                "values": (vid, name, gender, phone, reason, receptionist, t_start, t_end)
             })
 
-    # Sort & Finalize Grid
+    # Sort & Finalize
     grid_rows.sort(key=lambda x: x["sort_key"], reverse=True)
     final_display_list = [x["values"] for x in grid_rows]
 
     # --- UPDATE UI ---
-    # FIX: Use 'real_total_visitors' for the card, NOT len(final_display_list)
     vars_dict['total'].set(str(real_total_visitors))
     vars_dict['in'].set(str(in_count))
     vars_dict['out'].set(str(out_count))
@@ -172,7 +172,7 @@ def load_home_screen(parent_frame):
     right.pack(side="right")
     tk.Label(right, textvariable=stats['time'], font=("Segoe UI", 10), fg=TEXT_SEC, bg=BG_MAIN).pack(side="right", padx=15)
     
-    tk.Button(right, text=" ⟳ Refresh ", bg="#2563EB", fg="white", bd=0, padx=25, pady=8, 
+    tk.Button(right, text=" ↻ Refresh ", bg="#2563EB", fg="white", bd=0, padx=25, pady=8, 
               font=("Segoe UI", 10, "bold"), cursor="hand2", activebackground="#1E40AF", activeforeground="white",
               command=lambda: threading.Thread(target=fetch_dashboard_data, args=(stats, table), daemon=True).start()
     ).pack(side="right")
@@ -191,7 +191,7 @@ def load_home_screen(parent_frame):
     lbl_frame = tk.Frame(table_outer, bg="white", pady=20, padx=20)
     lbl_frame.pack(fill="x")
     
-    tk.Label(lbl_frame, text="Recent Visitor Apppointment Activity", font=("Segoe UI", 14, "bold"), fg=DARK_BLUE_TEXT, bg="white").pack(side="left")
+    tk.Label(lbl_frame, text="Recent Visitor Appointment Activity", font=("Segoe UI", 14, "bold"), fg=DARK_BLUE_TEXT, bg="white").pack(side="left")
 
     style = ttk.Style()
     style.theme_use("clam")
@@ -205,35 +205,43 @@ def load_home_screen(parent_frame):
                     bordercolor="white", 
                     font=("Segoe UI", 10))
     
-    # Header Style
+    # --- HEADER STYLE (DARK MODE) ---
     style.configure("Dash.Treeview.Heading", 
-                    background=HEADER_BG,
-                    foreground="#374151",
+                    background="#0F3168",      # Dark Blue Background
+                    foreground="white",        # White Text
                     font=("Segoe UI", 10, "bold"),
                     relief="flat",
                     padding=(10, 10))
 
-    style.map("Dash.Treeview", background=[('selected', '#E0F2FE')])
+    # High Contrast Selection
+    style.map("Dash.Treeview", 
+        background=[('selected', '#3498DB')], 
+        foreground=[('selected', 'white')]
+    )
 
     # --- TABLE SETUP ---
-    cols = ("ID", "Visitor Name", "Reason", "Receptionist", "Start Time", "End Time")
+    cols = ("ID", "Visitor Name", "Gender", "Phone", "Reason", "Receptionist", "Start Time", "End Time")
     table = ttk.Treeview(table_outer, columns=cols, show="headings", style="Dash.Treeview")
     
     # Headers
     table.heading("ID", text="ID", anchor="center")
     table.heading("Visitor Name", text="Visitor Name", anchor="w")
+    table.heading("Gender", text="Gender", anchor="center")
+    table.heading("Phone", text="Phone / ID", anchor="w")
     table.heading("Reason", text="Reason", anchor="center")
     table.heading("Receptionist", text="Receptionist", anchor="center")
     table.heading("Start Time", text="Start Time", anchor="center")
     table.heading("End Time", text="End Time", anchor="center")
     
-    # Columns Config
-    table.column("ID", width=100, anchor="center")      
-    table.column("Visitor Name", width=200, anchor="w") 
-    table.column("Reason", width=120, anchor="center")
-    table.column("Receptionist", width=150, anchor="center")
-    table.column("Start Time", width=160, anchor="center")
-    table.column("End Time", width=160, anchor="center")
+    # Columns
+    table.column("ID", width=60, minwidth=50, stretch=False, anchor="center")      
+    table.column("Visitor Name", width=150, anchor="w") 
+    table.column("Gender", width=80, anchor="center")
+    table.column("Phone", width=120, anchor="w")
+    table.column("Reason", width=110, anchor="center")
+    table.column("Receptionist", width=130, anchor="center")
+    table.column("Start Time", width=140, anchor="center")
+    table.column("End Time", width=140, anchor="center")
     
     sb = ttk.Scrollbar(table_outer, orient="vertical", command=table.yview)
     table.configure(yscroll=sb.set)

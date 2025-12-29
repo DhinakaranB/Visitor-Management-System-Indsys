@@ -14,8 +14,8 @@ except ImportError:
 # ================= CONFIGURATION =================
 BG_COLOR = "#F4F6F7"        # Light Gray Background
 CARD_BG = "#FFFFFF"         # White Card Background
-PRIMARY_COLOR = "#3498DB"   # Blue
-TEXT_COLOR = "#2C3E50"      # Dark Text
+PRIMARY_COLOR = "#10527D"   # Blue
+TEXT_COLOR = "#030D16"      # Dark Text
 LABEL_COLOR = "#7F8C8D"     # Gray Labels
 
 API_QR_GET = "/artemis/api/visitor/v1/visitor/qr/get"
@@ -35,14 +35,16 @@ def show_qr_screen(root_instance, show_main_menu_callback=None):
     header_frame.pack(fill="x")
 
     def on_back():
-        if show_main_menu_callback:
+        # SAFETY CHECK: Ensure it is actually a function before calling it
+        if show_main_menu_callback and callable(show_main_menu_callback):
             show_main_menu_callback()
         else:
-            messagebox.showinfo("Navigation", "Back button pressed (Callback missing)")
+            print(f"DEBUG: Back button pressed, but callback is invalid: {type(show_main_menu_callback)}")
+            messagebox.showinfo("Navigation", "Back button works! (Connect 'back_callback' in Ui.py to go Home)")
 
     btn_back = tk.Button(header_frame, text="← Back to Home", 
                          command=on_back, 
-                         bg="white", fg=PRIMARY_COLOR, bd=0, 
+                         bg="white", fg=TEXT_COLOR, bd=0, 
                          font=("Segoe UI", 10, "bold"), cursor="hand2")
     btn_back.pack(side="left")
     
@@ -85,7 +87,7 @@ def show_qr_screen(root_instance, show_main_menu_callback=None):
     entry_id = ttk.Entry(left_panel, font=("Segoe UI", 12))
     entry_id.pack(fill="x", ipady=8, pady=(0, 20)) # Taller input box
     
-    btn_gen = tk.Button(left_panel, text="GENERATE QR CODE ➤", bg=PRIMARY_COLOR, fg="white", 
+    btn_gen = tk.Button(left_panel, text="GENERATE QR CODE", bg=PRIMARY_COLOR, fg="white", 
                         font=("Segoe UI", 11, "bold"), bd=0, cursor="hand2", pady=10,
                         command=lambda: fetch_qr_logic(entry_id.get(), qr_label, status_lbl, btn_download))
     btn_gen.pack(fill="x")
