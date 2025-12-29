@@ -215,15 +215,15 @@ def open_person_dropdown(widget):
     menu.focus_force()
 
 def open_vehicle_dropdown(widget):
-    menu = create_styled_menu(widget, width=280, height_factor=8)
+    menu = create_styled_menu(widget, width=280, height_factor=4)
     add_menu_item(menu, "Add Vehicle", lambda: vehicle_form.show_vehicle_form(content_frame, lambda: vehicle_list.show_list(content_frame)))
     add_menu_item(menu, "Vehicle List", lambda: vehicle_list.show_list(content_frame))
     add_menu_item(menu, "Parking List", lambda: vehicle_screen.show_parking_list(content_frame))
     add_menu_item(menu, "Floor List", lambda: vehicle_screen.show_floor_list(content_frame))
-    add_menu_item(menu, "Floor Overview", lambda: vehicle_screen.show_floor_overview(content_frame))
-    add_menu_item(menu, "Passageway Record", lambda: vehicle_screen.show_passageway_record(content_frame))
-    add_menu_item(menu, "Fee Calculation", lambda: vehicle_screen.show_fee_calc(content_frame))
-    add_menu_item(menu, "Confirm Fees", lambda: vehicle_screen.show_fee_confirm(content_frame))
+    # add_menu_item(menu, "Floor Overview", lambda: vehicle_screen.show_floor_overview(content_frame))
+    # add_menu_item(menu, "Passageway Record", lambda: vehicle_screen.show_passageway_record(content_frame))
+    # add_menu_item(menu, "Fee Calculation", lambda: vehicle_screen.show_fee_calc(content_frame))
+    # add_menu_item(menu, "Confirm Fees", lambda: vehicle_screen.show_fee_confirm(content_frame))
     menu.bind("<FocusOut>", lambda e: menu.destroy())
     menu.focus_force()
 
