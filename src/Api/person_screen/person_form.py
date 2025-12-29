@@ -32,7 +32,7 @@ def show_create_form(parent_frame, on_success_callback=None, edit_data=None):
 
     is_edit = edit_data is not None
     title_txt = f"Edit Person ({edit_data['personCode']})" if is_edit else "Add Person (Secure API)"
-    btn_txt = "Update Person" if is_edit else "Save to API"
+    btn_txt = "Update Person" if is_edit else "Submit"
     btn_color = "#ffc107" if is_edit else "#28a745"
 
     # Header

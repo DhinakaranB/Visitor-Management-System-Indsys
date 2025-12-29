@@ -197,13 +197,13 @@ def add_menu_item(menu, text, command):
 # ==========================================================
 
 def open_visitor_dropdown(widget):
-    menu = create_styled_menu(widget, width=260, height_factor=6)
+    menu = create_styled_menu(widget, width=260, height_factor=5)
     add_menu_item(menu, "New Registration", show_add_visitor)
     add_menu_item(menu, "Visitor List / Edit", show_single_visitor_list_external)
     add_menu_item(menu, "Visitor Groups", show_visitor_groups)
     add_menu_item(menu, "Register Details", show_visitor_register)
     add_menu_item(menu, "QR Configuration", show_visitor_QR)
-    add_menu_item(menu, "Check-In / Out", show_visitor_checkstatus)
+    # add_menu_item(menu, "Check-In / Out", show_visitor_checkstatus)
     menu.bind("<FocusOut>", lambda e: menu.destroy())
     menu.focus_force()
 
