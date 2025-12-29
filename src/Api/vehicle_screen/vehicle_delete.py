@@ -43,6 +43,8 @@ def delete_vehicle(plate_no):
             return True
         else:
             err = res.get("msg", "Unknown Error")
+            # Log error but let UI handle user notification if needed, or show here
+            print(f"Delete Error: {err}")
             messagebox.showerror("Delete Failed", f"API Error: {err}")
             return False
 

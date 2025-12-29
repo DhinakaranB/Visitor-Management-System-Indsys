@@ -39,6 +39,9 @@ try:
     from src.Api.person_screen import person_form
     from src.Api.person_screen import person_list  
 
+    from src.Api.vehicle_screen import vehicle_group_list
+    from src.Api.vehicle_screen import vehicle_group_form
+
     # Visitor Extras
     from src.Api.visitor_screen import VisitorRegisterDetails as visitorRegisterDetails
     from src.Api.visitor_screen import VisitorQRconfig as visitorQRconfig
@@ -217,9 +220,13 @@ def open_person_dropdown(widget):
 
 def open_vehicle_dropdown(widget):
     menu = create_styled_menu(widget, width=280, height_factor=6)
-    add_menu_item(menu, "Add Vehicle Group", lambda: vehicle_group_form.show_group_form(content_frame, lambda: vehicle_form.show_group_list(content_frame)))
-    add_menu_item(menu, "Vehicle Group List", lambda: vehicle_group_list.show_group_list(content_frame, lambda: vehicle_form.show_vehicle_form(content_frame)))
+    add_menu_item(menu, "Add Vehicle Group", lambda: vehicle_group_form.show_group_form(content_frame, lambda: vehicle_group_list.show_group_list(content_frame)))
+    add_menu_item(menu, "Vehicle Group List", lambda: vehicle_group_list.show_group_list(content_frame))
     add_menu_item(menu, "Add Vehicle", lambda: vehicle_form.show_vehicle_form(content_frame, lambda: vehicle_list.show_list(content_frame)))
+    # add_menu_item(menu, "Vehicle List", lambda: vehicle_list.show_list(content_frame))
+    # Match the function name defined in vehicle_list.py
+    # add_menu_item(menu, "Vehicle List", lambda: vehicle_list.show_vehicle_list(content_frame))
+    # Use .show_list()
     add_menu_item(menu, "Vehicle List", lambda: vehicle_list.show_list(content_frame))
     add_menu_item(menu, "Parking List", lambda: vehicle_screen.show_parking_list(content_frame))
     add_menu_item(menu, "Floor List", lambda: vehicle_screen.show_floor_list(content_frame))

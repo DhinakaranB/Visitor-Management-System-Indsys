@@ -81,11 +81,10 @@ def show_group_list(content_frame):
     tree_frame = tk.Frame(content_frame, bg="white")
     tree_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-    # Columns: (JSON Key, Title, Weight)
-    # Note: 'indexCode' is the unique ID for vehicle groups
+    # ✅ CORRECTED COLUMNS (Matches API Response)
     cols = [
-        ("indexCode", "Index Code", 2),
-        ("name", "Group Name", 4),
+        ("vehicleGroupIndexCode", "Index Code", 2), # Was 'indexCode'
+        ("vehicleGroupName", "Group Name", 4),      # Was 'name'
         ("parentIndexCode", "Parent Index", 2),
         ("description", "Description", 3)
     ]
@@ -118,9 +117,8 @@ def load_data(page):
         "pageSize": page_size
     }
     
-    # NOTE: API might filter by name, or we might need client-side filter
     if name_var.get().strip():
-        payload["name"] = name_var.get().strip()
+        payload["vehicleGroupName"] = name_var.get().strip() # Also updated filter key
 
     if api_handler:
         res = api_handler.call_api(API_GROUP_LIST, payload)
@@ -129,7 +127,7 @@ def load_data(page):
             data = res.get("data", {})
             rows = data.get("list", [])
             total_records = data.get("total", 0)
-            group_cache = rows # Cache for editing
+            group_cache = rows 
 
             if table: table.render_data(rows)
             render_pagination()
@@ -137,10 +135,10 @@ def load_data(page):
             if table: table.render_data([])
             render_pagination()
     else:
-        # Mock Data
+        # Mock Data (Updated keys)
         if table: table.render_data([
-            {"indexCode": "1", "name": "Staff", "parentIndexCode": "0", "description": "Employees"},
-            {"indexCode": "2", "name": "Visitor", "parentIndexCode": "0", "description": "Guests"}
+            {"vehicleGroupIndexCode": "1", "vehicleGroupName": "Staff", "parentIndexCode": "0", "description": "Employees"},
+            {"vehicleGroupIndexCode": "2", "vehicleGroupName": "Visitor", "parentIndexCode": "0", "description": "Guests"}
         ])
 
 def render_pagination():
@@ -165,9 +163,9 @@ def render_pagination():
 
 # ================= HANDLERS =================
 def handle_edit(row_data):
-    # Find full object in cache
-    code = str(row_data.get("indexCode"))
-    obj = next((g for g in group_cache if str(g.get("indexCode")) == code), row_data)
+    # ✅ Corrected Key
+    code = str(row_data.get("vehicleGroupIndexCode"))
+    obj = next((g for g in group_cache if str(g.get("vehicleGroupIndexCode")) == code), row_data)
     
     if vehicle_group_form:
         vehicle_group_form.show_group_form(
@@ -177,8 +175,9 @@ def handle_edit(row_data):
         )
 
 def handle_delete(row_data):
-    code = str(row_data.get("indexCode"))
-    name = row_data.get("name")
+    # ✅ Corrected Key
+    code = str(row_data.get("vehicleGroupIndexCode"))
+    name = row_data.get("vehicleGroupName")
     
     if messagebox.askyesno("Confirm Delete", f"Delete Group '{name}'?"):
         if vehicle_group_delete and vehicle_group_delete.delete_group(code):
