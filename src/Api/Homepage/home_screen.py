@@ -17,11 +17,12 @@ API_APPOINTMENT_LIST = "/artemis/api/visitor/v1/appointment/appointmentlist"
 # --- COLORS ---
 BG_MAIN = "#F8F9FA"       
 BG_CARD = "#FFFFFF"       
-TEXT_PRI = "#111827"      
+TEXT_PRI = "#1C3877"      
 TEXT_SEC = "#6B7280"      
 HEADER_BG = "#F3F4F6"     
 BORDER_COLOR = "#E5E7EB"  
 DARK_BLUE_TEXT = "#062F6C" 
+
 
 def call_api(url, payload):
     if not common_signature_api: return None

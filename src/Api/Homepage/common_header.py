@@ -94,10 +94,6 @@ class GradientHeader(tk.Canvas):
 
     def add_profile(self):
         """ Adds the Admin Profile on the right """
-        # Transparent hack: We match the bg color of the label to the Right Gradient Color
-        lbl = tk.Label(self, text="👤 Admin", bg=COLOR_RIGHT, fg=TEXT_COLOR, font=("Segoe UI", 11))
-        lbl.place(relx=1.0, rely=0.5, anchor="e", x=-20)
-
 
 def render_global_header(root, home_fn, visitor_fn, person_fn, vehicle_fn, door_fn, access_fn):
     """
